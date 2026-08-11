@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { 
   Folder, File as FileIcon, FileImage, FileVideo, FileAudio, FileText,
   Upload, Plus, Grid, List, Download, Trash2, Eye, ChevronRight, Home,
-  FolderUp, RefreshCcw, MoreVertical, X
+  FolderUp, RefreshCcw, X
 } from 'lucide-react';
 import { formatBytes, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -26,9 +26,11 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { useUploadQueue } from '@/hooks/use-upload-queue';
+import { UploadQueuePanel } from '@/components/upload-queue-panel';
 
 // Helper for file icons
-function getFileIcon(mimeType: string | null, isFolder: boolean) {
+function getFileIcon(mimeType: string | null | undefined, isFolder: boolean) {
   if (isFolder) return <Folder className="w-5 h-5 text-primary" fill="currentColor" fillOpacity={0.2} />;
   if (!mimeType) return <FileIcon className="w-5 h-5 text-muted-foreground" />;
   if (mimeType.startsWith('image/')) return <FileImage className="w-5 h-5 text-blue-400" />;
@@ -48,13 +50,11 @@ export default function FilesPage() {
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   const [isDragging, setIsDragging] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<{ active: boolean; count: number; total: number }>({ active: false, count: 0, total: 0 });
 
-  const { data: files, isLoading, refetch: refetchFiles } = useListFiles({
-    query: {
-      queryKey: getListFilesQueryKey({ path: currentPath }),
-    }
-  });
+  const { data: files, isLoading, refetch: refetchFiles } = useListFiles(
+    { path: currentPath },
+    { query: { queryKey: getListFilesQueryKey({ path: currentPath }) } }
+  );
 
   const { data: recentFiles } = useGetRecentFiles({ limit: 5 });
 
@@ -72,37 +72,16 @@ export default function FilesPage() {
     queryClient.invalidateQueries({ queryKey: getGetRecentFilesQueryKey() });
   }, [queryClient, currentPath]);
 
-  // Upload logic
-  const uploadToServer = async (uploadFiles: File[], parentPath: string) => {
+  // Upload queue: XHR-based, per-file progress, cancel & retry support
+  const uploadQueue = useUploadQueue({ onFileComplete: invalidateData });
+
+  const startUpload = useCallback((uploadFiles: File[], parentPath: string) => {
     if (uploadFiles.length === 0) return;
-    setUploadProgress({ active: true, count: 0, total: uploadFiles.length });
-    
-    const formData = new FormData();
-    uploadFiles.forEach(file => formData.append('files', file));
-    formData.append('parentPath', parentPath);
-    
-    const hasRelativePaths = uploadFiles.some((f: any) => f.webkitRelativePath || f._customRelativePath);
-    if (hasRelativePaths) {
-      const relativePaths = uploadFiles.map((f: any) => f._customRelativePath || f.webkitRelativePath || f.name);
-      formData.append('relativePaths', JSON.stringify(relativePaths));
-    }
-    
-    try {
-      const resp = await fetch('/api/files/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      if (!resp.ok) throw new Error('Upload failed');
-      toast({ title: `Uploaded ${uploadFiles.length} file(s)` });
-      invalidateData();
-    } catch (err) {
-      toast({ title: 'Upload failed', variant: 'destructive' });
-    } finally {
-      setUploadProgress({ active: false, count: 0, total: 0 });
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      if (folderInputRef.current) folderInputRef.current.value = '';
-    }
-  };
+    uploadQueue.addFiles(uploadFiles, parentPath);
+    // Reset input values so the same file(s) can be re-selected later
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (folderInputRef.current) folderInputRef.current.value = '';
+  }, [uploadQueue]);
 
   // Drag and drop handlers
   const handleDragOver = (e: React.DragEvent) => {
@@ -119,18 +98,17 @@ export default function FilesPage() {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
-    
+
     if (e.dataTransfer.items) {
-      // Handle folders
+      // Handle folders via FileSystem API
       const items = Array.from(e.dataTransfer.items).filter(i => i.kind === 'file');
       const filesToUpload: File[] = [];
-      
-      const processEntry = async (entry: FileSystemEntry) => {
+
+      const processEntry = async (entry: FileSystemEntry): Promise<void> => {
         if (entry.isFile) {
           const fileEntry = entry as FileSystemFileEntry;
           return new Promise<void>((resolve) => {
             fileEntry.file((file) => {
-              // Safely attach path to a custom property instead of webkitRelativePath which is read-only
               (file as any)._customRelativePath = entry.fullPath.substring(1);
               filesToUpload.push(file);
               resolve();
@@ -141,26 +119,22 @@ export default function FilesPage() {
           const reader = dirEntry.createReader();
           return new Promise<void>((resolve) => {
             reader.readEntries(async (entries) => {
-              for (const child of entries) {
-                await processEntry(child);
-              }
+              for (const child of entries) await processEntry(child);
               resolve();
             });
           });
         }
       };
 
-      const promises = items.map(item => {
-        const entry = item.webkitGetAsEntry();
-        if (entry) return processEntry(entry);
-        return Promise.resolve();
-      });
-
-      await Promise.all(promises);
-      uploadToServer(filesToUpload, currentPath);
+      await Promise.all(
+        items.map(item => {
+          const entry = item.webkitGetAsEntry();
+          return entry ? processEntry(entry) : Promise.resolve();
+        })
+      );
+      startUpload(filesToUpload, currentPath);
     } else {
-      // Fallback
-      uploadToServer(Array.from(e.dataTransfer.files), currentPath);
+      startUpload(Array.from(e.dataTransfer.files), currentPath);
     }
   };
 
@@ -213,17 +187,7 @@ export default function FilesPage() {
         </div>
       )}
 
-      {uploadProgress.active && (
-        <div className="absolute bottom-4 right-4 z-40 bg-card border border-border shadow-lg rounded-lg p-4 w-72 flex items-center gap-4">
-          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-            <RefreshCcw className="w-4 h-4 text-primary animate-spin" />
-          </div>
-          <div className="flex-1">
-            <h4 className="text-sm font-medium">Encrypting & Uploading...</h4>
-            <p className="text-xs text-muted-foreground">{uploadProgress.total} file(s) processing</p>
-          </div>
-        </div>
-      )}
+      <UploadQueuePanel handle={uploadQueue} />
 
       {/* Toolbar */}
       <div className="h-14 flex items-center justify-between px-6 border-b border-border bg-card/50 flex-shrink-0 z-10">
@@ -248,14 +212,14 @@ export default function FilesPage() {
             ref={fileInputRef} 
             className="hidden" 
             multiple 
-            onChange={(e) => uploadToServer(Array.from(e.target.files || []), currentPath)} 
+            onChange={(e) => startUpload(Array.from(e.target.files || []), currentPath)} 
           />
           <input 
             type="file" 
             ref={folderInputRef} 
             className="hidden" 
             {...{ webkitdirectory: "", directory: "" } as any} 
-            onChange={(e) => uploadToServer(Array.from(e.target.files || []), currentPath)} 
+            onChange={(e) => startUpload(Array.from(e.target.files || []), currentPath)} 
           />
           
           <DropdownMenu>
