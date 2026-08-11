@@ -1,0 +1,119 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Vault</Name>
+  <Repository>ghcr.io/your-org/vault:latest</Repository>
+  <Registry>https://github.com/your-org/vault/pkgs/container/vault</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/your-org/vault/issues</Support>
+  <Project>https://github.com/your-org/vault</Project>
+  <Overview>
+    Vault is a self-hosted, Dropbox-style file backup server.
+    Multi-user with admin management, drag-and-drop uploads,
+    folder support, and inline file preview.
+    The first account registered becomes the admin.
+  </Overview>
+  <Category>Backup: Cloud: MediaServer:Other</Category>
+  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/your-org/vault/main/unraid-template.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/your-org/vault/main/attached_assets/icon.png</Icon>
+  <ExtraParams>--restart=unless-stopped</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+  <Requires>
+    A running PostgreSQL instance (or add the Unraid PostgreSQL container and
+    link it here via DATABASE_URL).
+  </Requires>
+
+  <!-- ── Ports ─────────────────────────────────────────── -->
+  <Config
+    Name="Web UI Port"
+    Target="3000"
+    Default="3000"
+    Mode="tcp"
+    Description="Port the Vault web interface is accessible on."
+    Type="Port"
+    Display="always"
+    Required="true"
+    Mask="false"
+  >3000</Config>
+
+  <!-- ── Volumes ───────────────────────────────────────── -->
+  <Config
+    Name="Uploads Directory"
+    Target="/data/uploads"
+    Default="/mnt/user/appdata/vault/uploads"
+    Mode="rw"
+    Description="Where uploaded files are stored. Point this at a User Share."
+    Type="Path"
+    Display="always"
+    Required="true"
+    Mask="false"
+  >/mnt/user/appdata/vault/uploads</Config>
+
+  <!-- ── Environment variables ─────────────────────────── -->
+  <Config
+    Name="SESSION_SECRET"
+    Target="SESSION_SECRET"
+    Default=""
+    Mode=""
+    Description="Secret used to sign session cookies. Generate with: openssl rand -hex 32"
+    Type="Variable"
+    Display="always"
+    Required="true"
+    Mask="true"
+  />
+
+  <Config
+    Name="DATABASE_URL"
+    Target="DATABASE_URL"
+    Default="postgresql://vault:vaultpass@vault-db:5432/vault"
+    Mode=""
+    Description="PostgreSQL connection string. Replace host/user/password/dbname to match your setup."
+    Type="Variable"
+    Display="always"
+    Required="true"
+    Mask="false"
+  >postgresql://vault:vaultpass@vault-db:5432/vault</Config>
+
+  <Config
+    Name="UPLOAD_DIR"
+    Target="UPLOAD_DIR"
+    Default="/data/uploads"
+    Mode=""
+    Description="Path inside the container where uploaded files are stored. Must match the Uploads Directory volume target above."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"
+  >/data/uploads</Config>
+
+  <Config
+    Name="PORT"
+    Target="PORT"
+    Default="3000"
+    Mode=""
+    Description="Internal port the server listens on. Only change if you have a conflict."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"
+  >3000</Config>
+
+  <Config
+    Name="NODE_ENV"
+    Target="NODE_ENV"
+    Default="production"
+    Mode=""
+    Description="Node environment. Leave as 'production'."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false"
+  >production</Config>
+</Container>

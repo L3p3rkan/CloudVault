@@ -1,0 +1,71 @@
+version: "3.9"
+
+# ============================================================
+# Vault — docker-compose
+#
+# Quick-start (non-Unraid):
+#   1. Copy .env.example to .env and fill in SESSION_SECRET
+#   2. docker compose up -d
+#   3. Open http://localhost:3000 and register — the first
+#      account created becomes the admin.
+# ============================================================
+
+services:
+  vault:
+    image: vault:latest          # or your registry tag
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vault
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    environment:
+      # ── Required ──────────────────────────────────────────
+      SESSION_SECRET: "${SESSION_SECRET}"
+      DATABASE_URL: "postgresql://vault:${POSTGRES_PASSWORD:-vaultpass}@db:5432/vault"
+
+      # ── Optional ──────────────────────────────────────────
+      # Override where uploaded files land inside the container.
+      # On Unraid map this to a Share, e.g. /mnt/user/appdata/vault/uploads
+      UPLOAD_DIR: "${UPLOAD_DIR:-/data/uploads}"
+
+      PORT: "3000"
+      NODE_ENV: "production"
+      STATIC_DIR: "/app/public"
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    container_name: vault-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vault
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-vaultpass}"
+      POSTGRES_DB: vault
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Expose port to the host so you can run the one-time schema push
+    # from the cloned repo:  DATABASE_URL=... pnpm --filter @workspace/db run push
+    # Comment out after first use if you prefer to keep the DB off the host network.
+    ports:
+      - "${DB_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vault -d vault"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  uploads:
+    # Bind-mount override example (add to your .env or set here):
+    # driver: local
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: /mnt/user/appdata/vault/uploads
+  pgdata:
