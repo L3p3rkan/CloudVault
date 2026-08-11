@@ -3,20 +3,26 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Vault — Self-hosted file backup API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: files
+    description: File and folder operations
+  - name: users
+    description: User management (admin)
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +30,454 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Auth ─────────────────────────────────────────────────────────────────
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Log in with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Invalid credentials
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new account (open registration)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "400":
+          description: Validation error or username taken
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Log out
+      responses:
+        "204":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get the currently authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not authenticated
+
+  # ── Files ────────────────────────────────────────────────────────────────
+  /files:
+    get:
+      operationId: listFiles
+      tags: [files]
+      summary: List files and folders at a path
+      parameters:
+        - name: path
+          in: query
+          required: false
+          schema:
+            type: string
+            default: "/"
+          description: Directory path to list (defaults to root)
+      responses:
+        "200":
+          description: File listing
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FileItem"
+        "401":
+          description: Not authenticated
+
+  /files/folder:
+    post:
+      operationId: createFolder
+      tags: [files]
+      summary: Create a new folder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FolderInput"
+      responses:
+        "201":
+          description: Folder created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileItem"
+        "400":
+          description: Invalid folder name or already exists
+        "401":
+          description: Not authenticated
+
+  /files/stats:
+    get:
+      operationId: getStorageStats
+      tags: [files]
+      summary: Get storage usage statistics for the current user
+      responses:
+        "200":
+          description: Storage stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StorageStats"
+        "401":
+          description: Not authenticated
+
+  /files/recent:
+    get:
+      operationId: getRecentFiles
+      tags: [files]
+      summary: Get recently uploaded files
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: number
+            default: 20
+      responses:
+        "200":
+          description: Recent files
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FileItem"
+        "401":
+          description: Not authenticated
+
+  /files/upload:
+    post:
+      operationId: uploadFiles
+      tags: [files]
+      summary: Upload files (multipart/form-data — use raw fetch, not generated hook)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadInput"
+      responses:
+        "201":
+          description: Files uploaded
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FileItem"
+        "400":
+          description: No files provided
+        "401":
+          description: Not authenticated
+
+  /files/{id}:
+    delete:
+      operationId: deleteFile
+      tags: [files]
+      summary: Delete a file or folder (folder deletion is recursive)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          description: File not found
+        "401":
+          description: Not authenticated
+
+  /files/{id}/meta:
+    get:
+      operationId: getFileMeta
+      tags: [files]
+      summary: Get file metadata (for preview type detection)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: File metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileItem"
+        "404":
+          description: Not found
+        "401":
+          description: Not authenticated
+
+  # ── Users (admin) ────────────────────────────────────────────────────────
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users (admin only)
+      responses:
+        "200":
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "403":
+          description: Forbidden
+
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a new user (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Validation error or username taken
+        "403":
+          description: Forbidden
+
+  /users/{id}:
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete a user and all their files (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "204":
+          description: User deleted
+        "404":
+          description: User not found
+        "403":
+          description: Forbidden
+
+  /users/{id}/password:
+    patch:
+      operationId: changeUserPassword
+      tags: [users]
+      summary: Change a user's password (admin can change any; users can change their own)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordInput"
+      responses:
+        "204":
+          description: Password changed
+        "403":
+          description: Forbidden
+        "404":
+          description: User not found
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
         status:
           type: string
-      required:
-        - status
 
+    # ── Auth schemas ─────────────────────────────────────────────────────
+    LoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+
+    RegisterInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+        email:
+          type: ["string", "null"]
+        password:
+          type: string
+          minLength: 6
+
+    AuthUser:
+      type: object
+      required: [id, username, isAdmin]
+      properties:
+        id:
+          type: number
+        username:
+          type: string
+        email:
+          type: ["string", "null"]
+        isAdmin:
+          type: boolean
+
+    # ── File schemas ─────────────────────────────────────────────────────
+    FileItem:
+      type: object
+      required: [id, userId, name, path, size, isFolder, parentPath, createdAt]
+      properties:
+        id:
+          type: number
+        userId:
+          type: number
+        name:
+          type: string
+        path:
+          type: string
+        size:
+          type: number
+        mimeType:
+          type: ["string", "null"]
+        isFolder:
+          type: boolean
+        parentPath:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    FolderInput:
+      type: object
+      required: [name, parentPath]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        parentPath:
+          type: string
+
+    UploadInput:
+      type: object
+      required: [parentPath]
+      properties:
+        parentPath:
+          type: string
+          description: "Destination folder path"
+
+    StorageStats:
+      type: object
+      required: [totalFiles, totalFolders, totalSize, usedFormatted]
+      properties:
+        totalFiles:
+          type: number
+        totalFolders:
+          type: number
+        totalSize:
+          type: number
+        usedFormatted:
+          type: string
+
+    # ── User schemas ─────────────────────────────────────────────────────
+    User:
+      type: object
+      required: [id, username, isAdmin, storageUsed, createdAt]
+      properties:
+        id:
+          type: number
+        username:
+          type: string
+        email:
+          type: ["string", "null"]
+        isAdmin:
+          type: boolean
+        storageUsed:
+          type: number
+        createdAt:
+          type: string
+
+    UserInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+        email:
+          type: ["string", "null"]
+        password:
+          type: string
+          minLength: 6
+        isAdmin:
+          type: boolean
+
+    PasswordInput:
+      type: object
+      required: [newPassword]
+      properties:
+        newPassword:
+          type: string
+          minLength: 6

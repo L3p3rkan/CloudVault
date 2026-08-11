@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Vault — Self-Hosted File Backup"
+description = "A self-hosted Dropbox-style file backup web app for Unraid Docker. Supports multi-user accounts with an admin panel for creating, deleting, and managing user passwords. Users can upload files and folders via drag-and-drop or click navigation, preview files inline before downloading, and organize files in a folder hierarchy."
+version = "1.0.0"
+id = "artifacts/vault"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22433
+
+[services.development]
+run = "pnpm --filter @workspace/vault run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/vault", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/vault/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22433"
+BASE_PATH = "/"
