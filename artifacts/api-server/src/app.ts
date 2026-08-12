@@ -7,6 +7,7 @@ import path from "path";
 import { existsSync } from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { pool } from "@workspace/db";
 
 const PgSession = ConnectPgSimple(session);
 
@@ -52,7 +53,7 @@ app.use(
 app.use(
   session({
     store: new PgSession({
-      conString: process.env.DATABASE_URL,
+      pool,
       createTableIfMissing: true,
     }),
     secret: process.env.SESSION_SECRET,

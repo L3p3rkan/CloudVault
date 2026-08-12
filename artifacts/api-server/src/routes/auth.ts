@@ -41,14 +41,23 @@ router.post("/auth/login", async (req, res): Promise<void> => {
 
   req.session.userId = user.id;
 
-  res.json(
-    LoginResponse.parse({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      isAdmin: user.isAdmin,
-    }),
-  );
+  // Wait for the session to be committed to the PostgreSQL store before
+  // responding. Without this, the client's next request can arrive before the
+  // row is written and be rejected as unauthenticated.
+  req.session.save((err) => {
+    if (err) {
+      res.status(500).json({ error: "Session error" });
+      return;
+    }
+    res.json(
+      LoginResponse.parse({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        isAdmin: user.isAdmin,
+      }),
+    );
+  });
 });
 
 // POST /auth/register
@@ -92,14 +101,20 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   req.session.userId = user.id;
 
-  res.status(201).json(
-    RegisterResponse.parse({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      isAdmin: user.isAdmin,
-    }),
-  );
+  req.session.save((err) => {
+    if (err) {
+      res.status(500).json({ error: "Session error" });
+      return;
+    }
+    res.status(201).json(
+      RegisterResponse.parse({
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        isAdmin: user.isAdmin,
+      }),
+    );
+  });
 });
 
 // POST /auth/logout
