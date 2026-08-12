@@ -54,7 +54,9 @@ app.use(
   session({
     store: new PgSession({
       pool,
-      createTableIfMissing: true,
+      // Session table is created by initDb() at startup — no need for the
+      // store to attempt it mid-request, which can silently 500 on first login.
+      createTableIfMissing: false,
     }),
     secret: process.env.SESSION_SECRET,
     resave: false,

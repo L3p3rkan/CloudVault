@@ -77,6 +77,18 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Session table used by connect-pg-simple.
+-- Created here so it exists before the first login attempt, avoiding the
+-- race where createTableIfMissing fires inside a session.save() callback.
+CREATE TABLE IF NOT EXISTS "session" (
+  "sid"    varchar      NOT NULL COLLATE "default",
+  "sess"   json         NOT NULL,
+  "expire" timestamp(6) NOT NULL,
+  CONSTRAINT "session_pkey" PRIMARY KEY ("sid") NOT DEFERRABLE INITIALLY IMMEDIATE
+) WITH (OIDS=FALSE);
+
+CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire");
+
 -- Seed a default admin user on first boot.
 -- The INSERT is skipped if any user already exists, so it never
 -- overwrites a user's changed password or interferes with existing data.
