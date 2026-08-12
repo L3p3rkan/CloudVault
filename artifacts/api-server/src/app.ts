@@ -61,7 +61,11 @@ app.use(
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      // Set COOKIE_SECURE=true only when the app is behind a TLS-terminating
+      // reverse proxy (e.g. nginx with HTTPS).  Leave it unset for plain-HTTP
+      // access (typical Unraid LAN setup) — the Secure flag would otherwise
+      // cause the browser to silently drop the session cookie.
+      secure: process.env.COOKIE_SECURE === "true",
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       sameSite: "lax",
     },

@@ -32,6 +32,11 @@ services:
       # On Unraid map this to a Share, e.g. /mnt/user/appdata/vault/uploads
       UPLOAD_DIR: "${UPLOAD_DIR:-/data/uploads}"
 
+      # Set to "true" only when the app is behind a TLS-terminating reverse
+      # proxy (HTTPS).  Leave unset for plain-HTTP LAN access (typical Unraid
+      # setup) — enabling it over plain HTTP silently breaks login.
+      # COOKIE_SECURE: "true"
+
       PORT: "3000"
       NODE_ENV: "production"
       STATIC_DIR: "/app/public"
