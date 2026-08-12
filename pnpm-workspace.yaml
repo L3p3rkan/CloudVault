@@ -108,7 +108,8 @@ overrides:
   "lightningcss>lightningcss-linux-arm-gnueabihf": "-"
   "lightningcss>lightningcss-linux-arm64-gnu": "-"
   "lightningcss>lightningcss-linux-arm64-musl": "-"
-  "lightningcss>lightningcss-linux-x64-musl": "-"
+  # lightningcss-linux-x64-musl kept — required by Alpine (musl libc) in Docker.
+  # "lightningcss>lightningcss-linux-x64-musl": "-"
   "lightningcss>lightningcss-win32-arm64-msvc": "-"
   "lightningcss>lightningcss-win32-x64-msvc": "-"
   "@tailwindcss/oxide>@tailwindcss/oxide-android-arm64": "-"
@@ -120,7 +121,8 @@ overrides:
   "@tailwindcss/oxide>@tailwindcss/oxide-linux-arm64-musl": "-"
   "@tailwindcss/oxide>@tailwindcss/oxide-win32-arm64-msvc": "-"
   "@tailwindcss/oxide>@tailwindcss/oxide-win32-x64-msvc": "-"
-  "@tailwindcss/oxide>@tailwindcss/oxide-linux-x64-musl": "-"
+  # tailwindcss-oxide-linux-x64-musl kept — required by Alpine (musl libc) in Docker.
+  # "@tailwindcss/oxide>@tailwindcss/oxide-linux-x64-musl": "-"
   "rollup>@rollup/rollup-android-arm-eabi": "-"
   "rollup>@rollup/rollup-android-arm64": "-"
   "rollup>@rollup/rollup-darwin-arm64": "-"

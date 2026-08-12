@@ -1,0 +1,44 @@
+=> ERROR [build-frontend 2/2] RUN pnpm --filter @workspace/vault run build                                                  0.8s 
+ => [build-api 2/2] RUN pnpm --filter @workspace/api-server run build                                                        0.8s 
+------                                                                                                                            
+ > [build-frontend 2/2] RUN pnpm --filter @workspace/vault run build:                                                             
+0.564                                                                                                                             
+0.564 > @workspace/vault@0.0.0 build /app/artifacts/vault                                                                         
+0.564 > vite build --config vite.config.ts                                                                                        
+0.564 
+0.731 failed to load config from /app/artifacts/vault/vite.config.ts
+0.731 error during build:
+0.731 Error: Cannot find module '../lightningcss.linux-x64-musl.node'
+0.731 Require stack:
+0.731 - /app/node_modules/.pnpm/lightningcss@1.32.0/node_modules/lightningcss/node/index.js
+0.731     at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
+0.731     at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+0.731     at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+0.731     at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
+0.731     at Module._load (node:internal/modules/cjs/loader:1294:5)
+0.731     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+0.731     at Module.require (node:internal/modules/cjs/loader:1617:12)
+0.731     at require (node:internal/modules/helpers:153:16)
+0.731     at Object.<anonymous> (/app/node_modules/.pnpm/lightningcss@1.32.0/node_modules/lightningcss/node/index.js:20:12)
+0.731     at Module._compile (node:internal/modules/cjs/loader:1872:14)
+0.751 /app/artifacts/vault:
+0.751  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/vault@0.0.0 build: `vite build --config vite.config.ts`
+0.751 Exit status 1
+------
+Dockerfile:41
+
+--------------------
+
+  39 |         NODE_ENV=production
+
+  40 |     
+
+  41 | >>> RUN pnpm --filter @workspace/vault run build
+
+  42 |     # Output: artifacts/vault/dist/public/
+
+  43 |     
+
+--------------------
+
+failed to solve: process "/bin/sh -c pnpm --filter @workspace/vault run build" did not complete successfully: exit code: 1
