@@ -8,7 +8,8 @@
 # Stage 1: install all workspace dependencies
 # ------------------------------------------------------------
 FROM node:24-alpine AS deps
-RUN corepack enable
+# Pin pnpm explicitly — avoids corepack auto-downloading the wrong version.
+RUN npm install -g pnpm@10.26.1
 
 WORKDIR /app
 
