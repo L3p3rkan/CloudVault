@@ -76,6 +76,15 @@ DO $$ BEGIN
       FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE cascade;
   END IF;
 END $$;
+
+-- Seed a default admin user on first boot.
+-- The INSERT is skipped if any user already exists, so it never
+-- overwrites a user's changed password or interferes with existing data.
+INSERT INTO "users" ("username", "password_hash", "is_admin")
+SELECT 'admin',
+       '$2a$12$TIZutSrWrGO067fpX.3GX.r14t87v93xYHIVmUvABRb7edxPUMcCa',
+       true
+WHERE NOT EXISTS (SELECT 1 FROM "users");
 `;
 
 export async function initDb(): Promise<void> {
