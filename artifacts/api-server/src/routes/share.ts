@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { stat, createReadStream } from "node:fs";
 import { promisify } from "node:util";
 import { db, filesTable, shareTokensTable } from "@workspace/db";
-import { eq, and, or, isNull, gt } from "drizzle-orm";
+import { eq, and, or, isNull, gt, sql } from "drizzle-orm";
 import {
   CreateShareTokenParams,
   CreateShareTokenBody,
@@ -44,11 +44,6 @@ router.post("/files/:id/share", requireAuth, async (req, res): Promise<void> => 
 
   if (!file) {
     res.status(404).json({ error: "File not found" });
-    return;
-  }
-
-  if (file.isFolder) {
-    res.status(400).json({ error: "Cannot share a folder" });
     return;
   }
 
@@ -178,9 +173,10 @@ router.get("/share/:token/meta", async (req, res): Promise<void> => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.json({
     name: file.name,
-    size: file.size,
+    size: file.size ?? 0,
     mimeType: file.mimeType ?? null,
     expiresAt: shareToken.expiresAt?.toISOString() ?? null,
+    isFolder: file.isFolder,
   });
 });
 
@@ -209,18 +205,128 @@ async function resolveShare(
     .from(filesTable)
     .where(eq(filesTable.id, shareToken.fileId));
 
-  if (!file || !file.diskPath) {
+  if (!file) {
     return { ok: false, status: 404, error: "File not found" };
   }
 
-  try {
-    await statAsync(file.diskPath);
-  } catch {
-    return { ok: false, status: 404, error: "File not found on disk" };
+  // For regular files, verify the file exists on disk
+  if (!file.isFolder) {
+    if (!file.diskPath) return { ok: false, status: 404, error: "File not found" };
+    try {
+      await statAsync(file.diskPath);
+    } catch {
+      return { ok: false, status: 404, error: "File not found on disk" };
+    }
   }
 
   return { ok: true, file, shareToken };
 }
+
+// GET /share/:token/folder-files — list files inside a shared folder (no auth)
+router.get("/share/:token/folder-files", async (req, res): Promise<void> => {
+  const params = DownloadSharedFileParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid token" });
+    return;
+  }
+
+  const result = await resolveShare(params.data.token);
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+
+  const { file: folder } = result;
+  if (!folder.isFolder) {
+    res.status(400).json({ error: "This share link is for a file, not a folder" });
+    return;
+  }
+
+  const children = await db
+    .select()
+    .from(filesTable)
+    .where(
+      and(
+        eq(filesTable.userId, folder.userId),
+        eq(filesTable.isFolder, false),
+        sql`(${filesTable.path} LIKE ${folder.path + "/%"} OR ${filesTable.parentPath} = ${folder.path})`,
+      ),
+    );
+
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.json(
+    children.map((f) => ({
+      id: f.id,
+      name: f.name,
+      size: f.size ?? 0,
+      mimeType: f.mimeType ?? null,
+      path: f.path,
+      parentPath: f.parentPath,
+    })),
+  );
+});
+
+// GET /share/:token/folder-file/:fileId — download a single file from a shared folder (no auth)
+router.get("/share/:token/folder-file/:fileId", async (req, res): Promise<void> => {
+  const params = DownloadSharedFileParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid token" });
+    return;
+  }
+
+  const result = await resolveShare(params.data.token);
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+
+  const { file: folder } = result;
+  if (!folder.isFolder) {
+    res.status(400).json({ error: "Not a folder share" });
+    return;
+  }
+
+  const fileId = parseInt(req.params.fileId, 10);
+  if (isNaN(fileId)) {
+    res.status(400).json({ error: "Invalid fileId" });
+    return;
+  }
+
+  const [targetFile] = await db
+    .select()
+    .from(filesTable)
+    .where(and(eq(filesTable.id, fileId), eq(filesTable.userId, folder.userId), eq(filesTable.isFolder, false)));
+
+  if (!targetFile || !targetFile.diskPath) {
+    res.status(404).json({ error: "File not found" });
+    return;
+  }
+
+  // Security: verify the file is actually inside the shared folder
+  if (
+    targetFile.parentPath !== folder.path &&
+    !targetFile.path.startsWith(folder.path + "/")
+  ) {
+    res.status(403).json({ error: "File is not in the shared folder" });
+    return;
+  }
+
+  try {
+    await statAsync(targetFile.diskPath);
+  } catch {
+    res.status(404).json({ error: "File not found on disk" });
+    return;
+  }
+
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${encodeURIComponent(targetFile.name)}"`,
+  );
+  if (targetFile.mimeType) res.setHeader("Content-Type", targetFile.mimeType);
+  if (targetFile.size) res.setHeader("Content-Length", targetFile.size.toString());
+  createReadStream(targetFile.diskPath).pipe(res);
+});
 
 // GET /share/:token/inline — public inline preview (no auth)
 // Only serves file content inline for a strict allowlist of safe MIME types.
@@ -240,6 +346,12 @@ router.get("/share/:token/inline", async (req, res): Promise<void> => {
   }
 
   const { file } = result;
+
+  if (file.isFolder) {
+    res.status(400).json({ error: "Use the folder-files API to browse shared folders" });
+    return;
+  }
+
   const safe = isInlineSafe(file.mimeType);
   const disposition = safe ? "inline" : "attachment";
 
@@ -273,6 +385,11 @@ router.get("/share/:token", async (req, res): Promise<void> => {
   }
 
   const { file } = result;
+
+  if (file.isFolder) {
+    res.status(400).json({ error: "Use the folder-files API to browse shared folders" });
+    return;
+  }
 
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader(

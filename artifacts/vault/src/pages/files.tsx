@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { 
   Folder, File as FileIcon, FileImage, FileVideo, FileAudio, FileText,
   Upload, Plus, Grid, List, Download, Trash2, Eye, ChevronRight, Home,
-  FolderUp, RefreshCcw, X, Share2, Copy, Check, Link, Clock
+  FolderUp, RefreshCcw, X, Share2, Copy, Check, Link, Clock, FolderSymlink
 } from 'lucide-react';
 import { formatBytes, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -32,6 +32,26 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useUploadQueue } from '@/hooks/use-upload-queue';
 import { UploadQueuePanel } from '@/components/upload-queue-panel';
+
+// Guess MIME type from filename extension when the server didn't detect one
+// (common for files uploaded from iOS or generic binary uploads)
+function guessMimeFromName(name: string): string | undefined {
+  const ext = name.split('.').pop()?.toLowerCase();
+  const map: Record<string, string> = {
+    jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+    webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp',
+    mp4: 'video/mp4', webm: 'video/webm', mov: 'video/quicktime',
+    avi: 'video/x-msvideo', mkv: 'video/x-matroska',
+    mp3: 'audio/mpeg', wav: 'audio/wav', ogg: 'audio/ogg',
+    flac: 'audio/flac', aac: 'audio/aac', m4a: 'audio/mp4',
+    pdf: 'application/pdf',
+    txt: 'text/plain', md: 'text/plain', json: 'application/json',
+    ts: 'text/plain', tsx: 'text/plain', js: 'text/plain',
+    jsx: 'text/plain', css: 'text/plain', html: 'text/html',
+    csv: 'text/plain', xml: 'text/plain',
+  };
+  return ext ? map[ext] : undefined;
+}
 
 // Helper for file icons
 function getFileIcon(mimeType: string | null | undefined, isFolder: boolean) {
@@ -70,6 +90,7 @@ export default function FilesPage() {
 
   const [previewFileId, setPreviewFileId] = useState<number | null>(null);
   const [shareFileId, setShareFileId] = useState<number | null>(null);
+  const [moveItem, setMoveItem] = useState<{ id: number; name: string; parentPath: string } | null>(null);
 
   const invalidateData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getListFilesQueryKey({ path: currentPath }) });
@@ -154,6 +175,23 @@ export default function FilesPage() {
       },
       onError: () => toast({ title: 'Failed to create folder', variant: 'destructive' })
     });
+  };
+
+  const handleMove = async (id: number, newParentPath: string) => {
+    const resp = await fetch(`/api/files/${id}`, {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newParentPath }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      toast({ title: (err as any).error || 'Move failed', variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Moved successfully' });
+    invalidateData();
+    setMoveItem(null);
   };
 
   const handleDelete = (id: number) => {
@@ -342,17 +380,18 @@ export default function FilesPage() {
                     {file.isFolder ? 'Open Folder' : 'Preview'}
                   </ContextMenuItem>
                   {!file.isFolder && (
-                    <>
-                      <ContextMenuItem asChild>
-                        <a href={`/api/files/${file.id}/download`} download={file.name} className="flex items-center w-full cursor-pointer">
-                          <Download className="w-4 h-4 mr-2" /> Download
-                        </a>
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => setShareFileId(file.id)}>
-                        <Share2 className="w-4 h-4 mr-2" /> Share
-                      </ContextMenuItem>
-                    </>
+                    <ContextMenuItem asChild>
+                      <a href={`/api/files/${file.id}/download`} download={file.name} className="flex items-center w-full cursor-pointer">
+                        <Download className="w-4 h-4 mr-2" /> Download
+                      </a>
+                    </ContextMenuItem>
                   )}
+                  <ContextMenuItem onClick={() => setShareFileId(file.id)}>
+                    <Share2 className="w-4 h-4 mr-2" /> Share
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => setMoveItem({ id: file.id, name: file.name, parentPath: file.parentPath ?? '/' })}>
+                    <FolderSymlink className="w-4 h-4 mr-2" /> Move to…
+                  </ContextMenuItem>
                   <ContextMenuSeparator />
                   <ContextMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={() => handleDelete(file.id)}>
                     <Trash2 className="w-4 h-4 mr-2" /> Delete
@@ -399,6 +438,14 @@ export default function FilesPage() {
       {shareFileId && (
         <ShareDialog fileId={shareFileId} onClose={() => setShareFileId(null)} />
       )}
+
+      {moveItem && (
+        <MoveDialog
+          item={moveItem}
+          onClose={() => setMoveItem(null)}
+          onMove={handleMove}
+        />
+      )}
     </div>
   );
 }
@@ -412,17 +459,17 @@ function FilePreviewModal({ fileId, onClose, onShare }: { fileId: number; onClos
   const url = `/api/files/${file.id}/preview`;
   
   const renderPreview = () => {
-    if (!file.mimeType) return <NoPreview file={file} />;
-    if (file.mimeType.startsWith('image/')) return <img src={url} alt={file.name} className="max-w-full max-h-full object-contain bg-background/50 rounded-md" />;
-    if (file.mimeType.startsWith('video/')) return <video src={url} controls autoPlay className="max-w-full max-h-full rounded-md" />;
-    if (file.mimeType.startsWith('audio/')) return <audio src={url} controls className="w-full max-w-md" />;
-    if (file.mimeType === 'application/pdf') return <iframe src={url} className="w-full h-full rounded-md bg-white" title={file.name} />;
-    
-    // Text preview fetch simulation - using iframe for plain text is easy, but standard is <pre>
-    if (file.mimeType.startsWith('text/') || file.mimeType === 'application/json' || file.name.endsWith('.md') || file.name.endsWith('.ts') || file.name.endsWith('.tsx')) {
-       return <iframe src={url} className="w-full h-full rounded-md bg-background text-foreground font-mono" title={file.name} />
+    // Use the server-provided mimeType, fall back to guessing from the filename extension.
+    // This covers files uploaded from iOS and other clients that don't send Content-Type.
+    const mime = file.mimeType ?? guessMimeFromName(file.name);
+    if (!mime) return <NoPreview file={file} />;
+    if (mime.startsWith('image/')) return <img src={url} alt={file.name} className="max-w-full max-h-full object-contain bg-background/50 rounded-md" />;
+    if (mime.startsWith('video/')) return <video src={url} controls autoPlay className="max-w-full max-h-full rounded-md" />;
+    if (mime.startsWith('audio/')) return <audio src={url} controls className="w-full max-w-md" />;
+    if (mime === 'application/pdf') return <iframe src={url} className="w-full h-full rounded-md bg-white" title={file.name} />;
+    if (mime.startsWith('text/') || mime === 'application/json') {
+      return <iframe src={url} className="w-full h-full rounded-md bg-background text-foreground font-mono" title={file.name} />;
     }
-
     return <NoPreview file={file} />;
   };
 
@@ -623,6 +670,104 @@ function ShareDialog({ fileId, onClose }: { fileId: number; onClose: () => void 
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── MoveDialog ────────────────────────────────────────────────────────────────
+// Folder-picker for moving a file or folder to a new location.
+function MoveDialog({
+  item,
+  onClose,
+  onMove,
+}: {
+  item: { id: number; name: string; parentPath: string };
+  onClose: () => void;
+  onMove: (id: number, newParentPath: string) => Promise<void>;
+}) {
+  const [browsePath, setBrowsePath] = useState('/');
+  const [moving, setMoving] = useState(false);
+
+  const { data: items } = useListFiles(
+    { path: browsePath },
+    { query: { queryKey: getListFilesQueryKey({ path: browsePath }) } },
+  );
+
+  const folders = (items ?? []).filter((f) => f.isFolder);
+
+  // Breadcrumb navigation
+  const parts = browsePath.split('/').filter(Boolean);
+  const breadcrumbs = [
+    { name: 'Home', path: '/' },
+    ...parts.map((part, i) => ({
+      name: part,
+      path: '/' + parts.slice(0, i + 1).join('/'),
+    })),
+  ];
+
+  const handleMoveHere = async () => {
+    setMoving(true);
+    await onMove(item.id, browsePath);
+    setMoving(false);
+  };
+
+  const isSameLocation = browsePath === item.parentPath;
+
+  return (
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <FolderSymlink className="w-4 h-4" />
+            Move "{item.name}"
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Breadcrumb trail */}
+        <div className="flex items-center gap-1 flex-wrap text-sm py-1 px-2 bg-muted/40 rounded-md">
+          {breadcrumbs.map((crumb, i) => (
+            <span key={crumb.path} className="flex items-center gap-1">
+              {i > 0 && <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+              <button
+                className="hover:text-foreground text-muted-foreground transition-colors"
+                onClick={() => setBrowsePath(crumb.path)}
+              >
+                {i === 0 ? <Home className="w-3.5 h-3.5" /> : crumb.name}
+              </button>
+            </span>
+          ))}
+        </div>
+
+        {/* Folder list */}
+        <div className="min-h-[160px] max-h-[300px] overflow-y-auto border border-border rounded-lg divide-y divide-border">
+          {folders.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-10">
+              No subfolders here
+            </p>
+          ) : (
+            folders.map((f) => (
+              <button
+                key={f.id}
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/40 transition-colors text-left"
+                onClick={() => setBrowsePath(f.path)}
+              >
+                <Folder className="w-4 h-4 text-primary shrink-0" fill="currentColor" fillOpacity={0.2} />
+                <span className="text-sm font-medium truncate">{f.name}</span>
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground ml-auto" />
+              </button>
+            ))
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={moving}>
+            Cancel
+          </Button>
+          <Button onClick={handleMoveHere} disabled={isSameLocation || moving}>
+            {moving ? 'Moving…' : 'Move Here'}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

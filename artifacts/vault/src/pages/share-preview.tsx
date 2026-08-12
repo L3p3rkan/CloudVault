@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'wouter';
-import { Server, Download, FileText, AlertCircle, Loader2, FileIcon, Clock } from 'lucide-react';
+import { Server, Download, FileText, AlertCircle, Loader2, FileIcon, Clock, Folder } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface SharedFileMeta {
@@ -8,6 +8,16 @@ interface SharedFileMeta {
   size: number;
   mimeType: string | null;
   expiresAt: string | null;
+  isFolder: boolean;
+}
+
+interface FolderFile {
+  id: number;
+  name: string;
+  size: number;
+  mimeType: string | null;
+  path: string;
+  parentPath: string;
 }
 
 interface ApiError {
@@ -133,6 +143,7 @@ export default function SharePreviewPage() {
   const token = params.token;
 
   const [meta, setMeta] = useState<SharedFileMeta | null>(null);
+  const [folderFiles, setFolderFiles] = useState<FolderFile[] | null>(null);
   const [apiError, setApiError] = useState<ApiError | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -147,7 +158,15 @@ export default function SharePreviewPage() {
         if (!r.ok) {
           setApiError({ error: body.error ?? 'Unknown error', status: r.status });
         } else {
-          setMeta(body as SharedFileMeta);
+          const fileMeta = body as SharedFileMeta;
+          setMeta(fileMeta);
+          if (fileMeta.isFolder) {
+            // Load folder contents separately
+            fetch(`/api/share/${token}/folder-files`)
+              .then(async (fr) => fr.ok ? fr.json() : [])
+              .then((files) => setFolderFiles(files as FolderFile[]))
+              .catch(() => setFolderFiles([]));
+          }
         }
       })
       .catch(() => setApiError({ error: 'Network error', status: 0 }))
@@ -168,8 +187,78 @@ export default function SharePreviewPage() {
 
   if (!meta) return null;
 
-  const category = getPreviewCategory(meta.mimeType);
   const expiry = formatExpiry(meta.expiresAt);
+
+  // ── Folder share view ───────────────────────────────────────────────────────
+  if (meta.isFolder) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <header className="border-b border-border px-6 py-3 flex items-center gap-2">
+          <Server className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold text-foreground">Vault</span>
+          <span className="text-muted-foreground text-sm ml-1">· Shared folder</span>
+        </header>
+        <div className="flex-1 flex flex-col items-center justify-start p-6 gap-6 max-w-3xl mx-auto w-full pt-10">
+          <div className="w-full border border-border rounded-xl bg-card p-5 space-y-1">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Folder className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-base font-semibold truncate" title={meta.name}>{meta.name}</h1>
+                <div className="flex gap-4 mt-0.5">
+                  {folderFiles !== null && (
+                    <span className="text-xs text-muted-foreground">{folderFiles.length} file{folderFiles.length !== 1 ? 's' : ''}</span>
+                  )}
+                  {expiry && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> {expiry}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {folderFiles === null ? (
+            <div className="flex items-center gap-2 text-muted-foreground py-8">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span className="text-sm">Loading folder contents…</span>
+            </div>
+          ) : folderFiles.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Folder className="w-10 h-10 opacity-30 mx-auto mb-3" />
+              <p className="text-sm">This folder is empty.</p>
+            </div>
+          ) : (
+            <div className="w-full border border-border rounded-xl bg-card overflow-hidden divide-y divide-border">
+              {folderFiles.map((f) => (
+                <div key={f.id} className="flex items-center gap-3 px-4 py-3">
+                  <FileIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{f.name}</p>
+                    <p className="text-xs text-muted-foreground">{formatBytes(f.size)}</p>
+                  </div>
+                  <a
+                    href={`/api/share/${token}/folder-file/${f.id}`}
+                    download={f.name}
+                  >
+                    <Button size="sm" variant="outline" className="shrink-0">
+                      <Download className="w-3.5 h-3.5 mr-1.5" />
+                      Download
+                    </Button>
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── File share view ─────────────────────────────────────────────────────────
+  const category = getPreviewCategory(meta.mimeType);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">

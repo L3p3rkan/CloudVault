@@ -342,6 +342,107 @@ router.post(
   },
 );
 
+// PATCH /files/:id — move a file or folder to a new parent path
+router.patch("/files/:id", requireAuth, async (req, res): Promise<void> => {
+  const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(rawId, 10);
+  if (isNaN(id)) {
+    res.status(400).json({ error: "Invalid id" });
+    return;
+  }
+
+  const { newParentPath } = req.body as { newParentPath?: string };
+  if (!newParentPath || typeof newParentPath !== "string") {
+    res.status(400).json({ error: "newParentPath is required" });
+    return;
+  }
+
+  const userId = req.session.userId!;
+
+  const [item] = await db
+    .select()
+    .from(filesTable)
+    .where(and(eq(filesTable.id, id), eq(filesTable.userId, userId)));
+
+  if (!item) {
+    res.status(404).json({ error: "Not found" });
+    return;
+  }
+
+  if (item.parentPath === newParentPath) {
+    res.status(400).json({ error: "Item is already in that folder" });
+    return;
+  }
+
+  // Prevent moving a folder into itself or its own descendants
+  if (
+    item.isFolder &&
+    (newParentPath === item.path || newParentPath.startsWith(item.path + "/"))
+  ) {
+    res.status(400).json({ error: "Cannot move a folder into itself" });
+    return;
+  }
+
+  const newPath =
+    newParentPath === "/" ? `/${item.name}` : `${newParentPath}/${item.name}`;
+
+  // Collision check
+  const [collision] = await db
+    .select()
+    .from(filesTable)
+    .where(and(eq(filesTable.userId, userId), eq(filesTable.path, newPath)));
+
+  if (collision) {
+    res.status(409).json({ error: "An item already exists at that location" });
+    return;
+  }
+
+  // For folders: rewrite paths of all descendants
+  if (item.isFolder) {
+    const oldPrefix = item.path + "/";
+    const newPrefix = newPath + "/";
+
+    const children = await db
+      .select()
+      .from(filesTable)
+      .where(
+        and(
+          eq(filesTable.userId, userId),
+          sql`${filesTable.path} LIKE ${oldPrefix + "%"}`,
+        ),
+      );
+
+    for (const child of children) {
+      const childNewPath = newPrefix + child.path.substring(oldPrefix.length);
+      const lastSlash = childNewPath.lastIndexOf("/");
+      const childNewParent = lastSlash <= 0 ? "/" : childNewPath.substring(0, lastSlash);
+      await db
+        .update(filesTable)
+        .set({ path: childNewPath, parentPath: childNewParent })
+        .where(eq(filesTable.id, child.id));
+    }
+  }
+
+  const [updated] = await db
+    .update(filesTable)
+    .set({ path: newPath, parentPath: newParentPath, updatedAt: new Date() })
+    .where(and(eq(filesTable.id, id), eq(filesTable.userId, userId)))
+    .returning();
+
+  res.json({
+    id: updated.id,
+    userId: updated.userId,
+    name: updated.name,
+    path: updated.path,
+    size: updated.size ?? 0,
+    mimeType: updated.mimeType,
+    isFolder: updated.isFolder,
+    parentPath: updated.parentPath,
+    createdAt: updated.createdAt.toISOString(),
+    updatedAt: updated.updatedAt.toISOString(),
+  });
+});
+
 // DELETE /files/:id
 router.delete("/files/:id", requireAuth, async (req, res): Promise<void> => {
   const params = DeleteFileParams.safeParse(req.params);
