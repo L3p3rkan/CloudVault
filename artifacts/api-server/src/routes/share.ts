@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { stat, createReadStream } from "node:fs";
 import { promisify } from "node:util";
 import { db, filesTable, shareTokensTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, isNull, gt } from "drizzle-orm";
 import {
   CreateShareTokenParams,
   CreateShareTokenBody,
@@ -101,10 +101,17 @@ router.get("/files/:id/share", requireAuth, async (req, res): Promise<void> => {
     return;
   }
 
+  const now = new Date();
   const tokens = await db
     .select()
     .from(shareTokensTable)
-    .where(and(eq(shareTokensTable.fileId, id), eq(shareTokensTable.userId, userId)));
+    .where(
+      and(
+        eq(shareTokensTable.fileId, id),
+        eq(shareTokensTable.userId, userId),
+        or(isNull(shareTokensTable.expiresAt), gt(shareTokensTable.expiresAt, now)),
+      ),
+    );
 
   res.json(
     ListShareTokensResponse.parse(

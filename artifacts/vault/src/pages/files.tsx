@@ -601,16 +601,18 @@ function ShareDialog({ fileId, onClose }: { fileId: number; onClose: () => void 
                   >
                     {copiedToken === t.token ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
                   </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    onClick={() => handleRevoke(t.token)}
-                    disabled={revokeShare.isPending}
-                    title="Revoke link"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </Button>
+                  {!expired && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      onClick={() => handleRevoke(t.token)}
+                      disabled={revokeShare.isPending}
+                      title="Revoke link"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
                 </div>
               );
             })}
