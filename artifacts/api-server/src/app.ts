@@ -13,6 +13,12 @@ if (!process.env.SESSION_SECRET) {
 
 const app: Express = express();
 
+// Trust the first hop proxy (Replit's reverse proxy, nginx, etc.) so that
+// req.secure is true when X-Forwarded-Proto: https is present.  Without this,
+// express-session silently skips setting the cookie when secure:true and the
+// connection appears to be plain HTTP.
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,
