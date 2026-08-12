@@ -40,7 +40,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 * 1024 }, // 10 GB per file
+  limits: { fileSize: 100 * 1024 * 1024 * 1024 }, // 100 GB per file
 });
 
 // Ensure a virtual folder path exists in DB (creates all intermediates)
