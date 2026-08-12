@@ -21,6 +21,7 @@ import type {
 
 import type {
   AuthUser,
+  CreateShareTokenInput,
   FileItem,
   FolderInput,
   GetRecentFilesParams,
@@ -29,6 +30,7 @@ import type {
   LoginInput,
   PasswordInput,
   RegisterInput,
+  ShareToken,
   StorageStats,
   UploadInput,
   User,
@@ -963,6 +965,303 @@ export function useGetFileMeta<TData = Awaited<ReturnType<typeof getFileMeta>>, 
 
 
 
+
+export const getCreateShareTokenUrl = (id: number,) => {
+
+
+
+
+  return `/api/files/${id}/share`
+}
+
+/**
+ * @summary Create a share token for a file
+ */
+export const createShareToken = async (id: number,
+    createShareTokenInput: CreateShareTokenInput, options?: Parameters<typeof customFetch>[1]): Promise<ShareToken> => {
+
+  return customFetch<ShareToken>(getCreateShareTokenUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(createShareTokenInput)
+  }
+);}
+
+
+
+
+
+export const getCreateShareTokenMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createShareToken>>, TError,{id: number;data: BodyType<CreateShareTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createShareToken>>, TError,{id: number;data: BodyType<CreateShareTokenInput>}, TContext> => {
+
+const mutationKey = ['createShareToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createShareToken>>, {id: number;data: BodyType<CreateShareTokenInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createShareToken(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateShareTokenMutationResult = NonNullable<Awaited<ReturnType<typeof createShareToken>>>
+    export type CreateShareTokenMutationBody = BodyType<CreateShareTokenInput>
+    export type CreateShareTokenMutationError = ErrorType<void>
+
+    /**
+ * @summary Create a share token for a file
+ */
+export const useCreateShareToken = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createShareToken>>, TError,{id: number;data: BodyType<CreateShareTokenInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createShareToken>>,
+        TError,
+        {id: number;data: BodyType<CreateShareTokenInput>},
+        TContext
+      > => {
+      return useMutation(getCreateShareTokenMutationOptions(options));
+    }
+
+export const getListShareTokensUrl = (id: number,) => {
+
+
+
+
+  return `/api/files/${id}/share`
+}
+
+/**
+ * @summary List share tokens for a file
+ */
+export const listShareTokens = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ShareToken[]> => {
+
+  return customFetch<ShareToken[]>(getListShareTokensUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListShareTokensQueryKey = (id: number,) => {
+    return [
+    `/api/files/${id}/share`
+    ] as const;
+    }
+
+
+export const getListShareTokensQueryOptions = <TData = Awaited<ReturnType<typeof listShareTokens>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listShareTokens>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListShareTokensQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listShareTokens>>> = ({ signal }) => listShareTokens(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listShareTokens>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListShareTokensQueryResult = NonNullable<Awaited<ReturnType<typeof listShareTokens>>>
+export type ListShareTokensQueryError = ErrorType<void>
+
+
+/**
+ * @summary List share tokens for a file
+ */
+
+export function useListShareTokens<TData = Awaited<ReturnType<typeof listShareTokens>>, TError = ErrorType<void>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listShareTokens>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListShareTokensQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getDownloadSharedFileUrl = (token: string,) => {
+
+
+
+
+  return `/api/share/${token}`
+}
+
+/**
+ * @summary Download a shared file by token (no auth required)
+ */
+export const downloadSharedFile = async (token: string, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getDownloadSharedFileUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getDownloadSharedFileQueryKey = (token: string,) => {
+    return [
+    `/api/share/${token}`
+    ] as const;
+    }
+
+
+export const getDownloadSharedFileQueryOptions = <TData = Awaited<ReturnType<typeof downloadSharedFile>>, TError = ErrorType<void>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadSharedFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getDownloadSharedFileQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof downloadSharedFile>>> = ({ signal }) => downloadSharedFile(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof downloadSharedFile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type DownloadSharedFileQueryResult = NonNullable<Awaited<ReturnType<typeof downloadSharedFile>>>
+export type DownloadSharedFileQueryError = ErrorType<void>
+
+
+/**
+ * @summary Download a shared file by token (no auth required)
+ */
+
+export function useDownloadSharedFile<TData = Awaited<ReturnType<typeof downloadSharedFile>>, TError = ErrorType<void>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof downloadSharedFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getDownloadSharedFileQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRevokeShareTokenUrl = (token: string,) => {
+
+
+
+
+  return `/api/share/${token}/revoke`
+}
+
+/**
+ * @summary Revoke a share token
+ */
+export const revokeShareToken = async (token: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRevokeShareTokenUrl(token),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRevokeShareTokenMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeShareToken>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof revokeShareToken>>, TError,{token: string}, TContext> => {
+
+const mutationKey = ['revokeShareToken'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof revokeShareToken>>, {token: string}> = (props) => {
+          const {token} = props ?? {};
+
+          return  revokeShareToken(token,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RevokeShareTokenMutationResult = NonNullable<Awaited<ReturnType<typeof revokeShareToken>>>
+
+    export type RevokeShareTokenMutationError = ErrorType<void>
+
+    /**
+ * @summary Revoke a share token
+ */
+export const useRevokeShareToken = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof revokeShareToken>>, TError,{token: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof revokeShareToken>>,
+        TError,
+        {token: string},
+        TContext
+      > => {
+      return useMutation(getRevokeShareTokenMutationOptions(options));
+    }
 
 export const getListUsersUrl = () => {
 

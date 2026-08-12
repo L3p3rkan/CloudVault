@@ -253,6 +253,103 @@ paths:
         "401":
           description: Not authenticated
 
+  # ── Share tokens ─────────────────────────────────────────────────────────
+  /files/{id}/share:
+    post:
+      operationId: createShareToken
+      tags: [files]
+      summary: Create a share token for a file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateShareTokenInput"
+      responses:
+        "201":
+          description: Share token created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShareToken"
+        "404":
+          description: File not found
+        "401":
+          description: Not authenticated
+
+    get:
+      operationId: listShareTokens
+      tags: [files]
+      summary: List share tokens for a file
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Share tokens
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ShareToken"
+        "404":
+          description: File not found
+        "401":
+          description: Not authenticated
+
+  /share/{token}:
+    get:
+      operationId: downloadSharedFile
+      tags: [files]
+      summary: Download a shared file by token (no auth required)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File stream
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Token not found or expired
+        "410":
+          description: Share link expired
+
+  /share/{token}/revoke:
+    delete:
+      operationId: revokeShareToken
+      tags: [files]
+      summary: Revoke a share token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Revoked
+        "404":
+          description: Token not found
+        "401":
+          description: Not authenticated
+
   # ── Users (admin) ────────────────────────────────────────────────────────
   /users:
     get:
@@ -481,3 +578,30 @@ components:
         newPassword:
           type: string
           minLength: 6
+
+    # ── Share token schemas ───────────────────────────────────────────────
+    CreateShareTokenInput:
+      type: object
+      required: [expiry]
+      properties:
+        expiry:
+          type: string
+          enum: ["1h", "24h", "7d", "never"]
+          description: "Expiry duration for the share link"
+
+    ShareToken:
+      type: object
+      required: [id, token, fileId, userId, createdAt]
+      properties:
+        id:
+          type: number
+        token:
+          type: string
+        fileId:
+          type: number
+        userId:
+          type: number
+        expiresAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string

@@ -7,6 +7,8 @@
  */
 
 export * from './authUser';
+export * from './createShareTokenInput';
+export * from './createShareTokenInputExpiry';
 export * from './fileItem';
 export * from './folderInput';
 export * from './getRecentFilesParams';
@@ -15,6 +17,7 @@ export * from './listFilesParams';
 export * from './loginInput';
 export * from './passwordInput';
 export * from './registerInput';
+export * from './shareToken';
 export * from './storageStats';
 export * from './uploadInput';
 export * from './user';

@@ -214,6 +214,65 @@ export const GetFileMetaResponse = zod.object({
 
 
 /**
+ * @summary Create a share token for a file
+ */
+export const CreateShareTokenParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CreateShareTokenBody = zod.object({
+  "expiry": zod.enum(['1h', '24h', '7d', 'never']).describe('Expiry duration for the share link')
+})
+
+export const CreateShareTokenResponse = zod.object({
+  "id": zod.number(),
+  "token": zod.string(),
+  "fileId": zod.number(),
+  "userId": zod.number(),
+  "expiresAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary List share tokens for a file
+ */
+export const ListShareTokensParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListShareTokensResponseItem = zod.object({
+  "id": zod.number(),
+  "token": zod.string(),
+  "fileId": zod.number(),
+  "userId": zod.number(),
+  "expiresAt": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListShareTokensResponse = zod.array(ListShareTokensResponseItem)
+
+
+/**
+ * @summary Download a shared file by token (no auth required)
+ */
+export const DownloadSharedFileParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const DownloadSharedFileResponse = zod.unknown()
+
+
+/**
+ * @summary Revoke a share token
+ */
+export const RevokeShareTokenParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const RevokeShareTokenResponse = zod.void()
+
+
+/**
  * @summary List all users (admin only)
  */
 export const ListUsersResponseItem = zod.object({

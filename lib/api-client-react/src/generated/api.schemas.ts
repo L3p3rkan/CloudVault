@@ -90,6 +90,34 @@ export interface PasswordInput {
   newPassword: string;
 }
 
+/**
+ * Expiry duration for the share link
+ */
+export type CreateShareTokenInputExpiry = typeof CreateShareTokenInputExpiry[keyof typeof CreateShareTokenInputExpiry];
+
+
+export const CreateShareTokenInputExpiry = {
+  '1h': '1h',
+  '24h': '24h',
+  '7d': '7d',
+  never: 'never',
+} as const;
+
+export interface CreateShareTokenInput {
+  /** Expiry duration for the share link */
+  expiry: CreateShareTokenInputExpiry;
+}
+
+export interface ShareToken {
+  id: number;
+  token: string;
+  fileId: number;
+  userId: number;
+  /** @nullable */
+  expiresAt?: string | null;
+  createdAt: string;
+}
+
 export type ListFilesParams = {
 /**
  * Directory path to list (defaults to root)

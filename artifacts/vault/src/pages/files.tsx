@@ -7,7 +7,11 @@ import {
   useGetRecentFiles,
   getGetRecentFilesQueryKey,
   getGetStorageStatsQueryKey,
-  useGetFileMeta
+  useGetFileMeta,
+  useCreateShareToken,
+  useListShareTokens,
+  getListShareTokensQueryKey,
+  useRevokeShareToken,
 } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -15,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { 
   Folder, File as FileIcon, FileImage, FileVideo, FileAudio, FileText,
   Upload, Plus, Grid, List, Download, Trash2, Eye, ChevronRight, Home,
-  FolderUp, RefreshCcw, X
+  FolderUp, RefreshCcw, X, Share2, Copy, Check, Link, Clock
 } from 'lucide-react';
 import { formatBytes, formatDate, cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -65,6 +69,7 @@ export default function FilesPage() {
   const [newFolderName, setNewFolderName] = useState('');
 
   const [previewFileId, setPreviewFileId] = useState<number | null>(null);
+  const [shareFileId, setShareFileId] = useState<number | null>(null);
 
   const invalidateData = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: getListFilesQueryKey({ path: currentPath }) });
@@ -337,11 +342,16 @@ export default function FilesPage() {
                     {file.isFolder ? 'Open Folder' : 'Preview'}
                   </ContextMenuItem>
                   {!file.isFolder && (
-                    <ContextMenuItem asChild>
-                      <a href={`/api/files/${file.id}/download`} download={file.name} className="flex items-center w-full cursor-pointer">
-                        <Download className="w-4 h-4 mr-2" /> Download
-                      </a>
-                    </ContextMenuItem>
+                    <>
+                      <ContextMenuItem asChild>
+                        <a href={`/api/files/${file.id}/download`} download={file.name} className="flex items-center w-full cursor-pointer">
+                          <Download className="w-4 h-4 mr-2" /> Download
+                        </a>
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => setShareFileId(file.id)}>
+                        <Share2 className="w-4 h-4 mr-2" /> Share
+                      </ContextMenuItem>
+                    </>
                   )}
                   <ContextMenuSeparator />
                   <ContextMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={() => handleDelete(file.id)}>
@@ -380,6 +390,10 @@ export default function FilesPage() {
 
       {previewFileId && (
         <FilePreviewModal fileId={previewFileId} onClose={() => setPreviewFileId(null)} />
+      )}
+
+      {shareFileId && (
+        <ShareDialog fileId={shareFileId} onClose={() => setShareFileId(null)} />
       )}
     </div>
   );
@@ -452,5 +466,155 @@ function NoPreview({ file }: { file: any }) {
         </a>
       </Button>
     </div>
+  );
+}
+
+type ExpiryOption = '1h' | '24h' | '7d' | 'never';
+
+const EXPIRY_LABELS: Record<ExpiryOption, string> = {
+  '1h': '1 hour',
+  '24h': '24 hours',
+  '7d': '7 days',
+  'never': 'Never',
+};
+
+function ShareDialog({ fileId, onClose }: { fileId: number; onClose: () => void }) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [expiry, setExpiry] = useState<ExpiryOption>('7d');
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  const { data: tokens, isLoading } = useListShareTokens(fileId);
+
+  const createShare = useCreateShareToken();
+  const revokeShare = useRevokeShareToken();
+
+  const handleCreate = async () => {
+    try {
+      await createShare.mutateAsync({ id: fileId, data: { expiry } });
+      queryClient.invalidateQueries({ queryKey: getListShareTokensQueryKey(fileId) });
+      toast({ title: 'Share link created' });
+    } catch {
+      toast({ title: 'Failed to create share link', variant: 'destructive' });
+    }
+  };
+
+  const handleRevoke = async (token: string) => {
+    try {
+      await revokeShare.mutateAsync({ token });
+      queryClient.invalidateQueries({ queryKey: getListShareTokensQueryKey(fileId) });
+      toast({ title: 'Share link revoked' });
+    } catch {
+      toast({ title: 'Failed to revoke share link', variant: 'destructive' });
+    }
+  };
+
+  const getShareUrl = (token: string) => {
+    return `${window.location.origin}/api/share/${token}`;
+  };
+
+  const handleCopy = async (token: string) => {
+    await navigator.clipboard.writeText(getShareUrl(token));
+    setCopiedToken(token);
+    setTimeout(() => setCopiedToken(null), 2000);
+  };
+
+  const isExpired = (expiresAt: string | null | undefined) => {
+    if (!expiresAt) return false;
+    return new Date(expiresAt) < new Date();
+  };
+
+  const formatExpiry = (expiresAt: string | null | undefined) => {
+    if (!expiresAt) return 'Never expires';
+    const d = new Date(expiresAt);
+    if (d < new Date()) return 'Expired';
+    return `Expires ${formatDate(expiresAt)}`;
+  };
+
+  return (
+    <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Share2 className="w-4 h-4" /> Share File
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* Create new share link */}
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">Generate a public link anyone can use to download this file — no login required.</p>
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-muted-foreground shrink-0" />
+            <select
+              value={expiry}
+              onChange={(e) => setExpiry(e.target.value as ExpiryOption)}
+              className="flex-1 rounded-md border border-input bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              {(Object.entries(EXPIRY_LABELS) as [ExpiryOption, string][]).map(([val, label]) => (
+                <option key={val} value={val}>{label}</option>
+              ))}
+            </select>
+            <Button size="sm" onClick={handleCreate} disabled={createShare.isPending}>
+              <Link className="w-3.5 h-3.5 mr-1.5" />
+              {createShare.isPending ? 'Creating…' : 'Create Link'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Existing share links */}
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground py-2">Loading links…</p>
+        ) : tokens && tokens.length > 0 ? (
+          <div className="space-y-2 mt-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Active Links</p>
+            {tokens.map((t) => {
+              const expired = isExpired(t.expiresAt);
+              return (
+                <div
+                  key={t.id}
+                  className={cn(
+                    "flex items-center gap-2 rounded-lg border p-2.5",
+                    expired ? "border-border/50 opacity-60" : "border-border"
+                  )}
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-mono text-muted-foreground truncate">{getShareUrl(t.token)}</p>
+                    <p className={cn("text-xs mt-0.5", expired ? "text-destructive" : "text-muted-foreground")}>
+                      {formatExpiry(t.expiresAt)}
+                    </p>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0"
+                    onClick={() => handleCopy(t.token)}
+                    disabled={expired}
+                    title="Copy link"
+                  >
+                    {copiedToken === t.token ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => handleRevoke(t.token)}
+                    disabled={revokeShare.isPending}
+                    title="Revoke link"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-2">No active share links.</p>
+        )}
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Close</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
