@@ -253,6 +253,31 @@ export const ListShareTokensResponse = zod.array(ListShareTokensResponseItem)
 
 
 /**
+ * @summary Get shared file metadata by token (no auth required)
+ */
+export const GetSharedFileMetaParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const GetSharedFileMetaResponse = zod.object({
+  "name": zod.string(),
+  "size": zod.number(),
+  "mimeType": zod.string().nullable(),
+  "expiresAt": zod.string().nullish()
+})
+
+
+/**
+ * @summary Stream a shared file inline for browser preview (no auth required)
+ */
+export const InlineSharedFileParams = zod.object({
+  "token": zod.coerce.string()
+})
+
+export const InlineSharedFileResponse = zod.unknown()
+
+
+/**
  * @summary Download a shared file by token (no auth required)
  */
 export const DownloadSharedFileParams = zod.object({

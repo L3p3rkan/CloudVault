@@ -307,6 +307,53 @@ paths:
         "401":
           description: Not authenticated
 
+  /share/{token}/meta:
+    get:
+      operationId: getSharedFileMeta
+      tags: [files]
+      summary: Get shared file metadata by token (no auth required)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shared file metadata
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedFileMeta"
+        "404":
+          description: Token not found
+        "410":
+          description: Share link expired
+
+  /share/{token}/inline:
+    get:
+      operationId: inlineSharedFile
+      tags: [files]
+      summary: Stream a shared file inline for browser preview (no auth required)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: File stream with inline content disposition
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Token not found or expired
+        "410":
+          description: Share link expired
+
   /share/{token}:
     get:
       operationId: downloadSharedFile
@@ -580,6 +627,19 @@ components:
           minLength: 6
 
     # ── Share token schemas ───────────────────────────────────────────────
+    SharedFileMeta:
+      type: object
+      required: [name, size, mimeType]
+      properties:
+        name:
+          type: string
+        size:
+          type: number
+        mimeType:
+          type: ["string", "null"]
+        expiresAt:
+          type: ["string", "null"]
+
     CreateShareTokenInput:
       type: object
       required: [expiry]

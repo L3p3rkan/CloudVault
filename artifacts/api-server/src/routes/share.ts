@@ -120,30 +120,81 @@ router.get("/files/:id/share", requireAuth, async (req, res): Promise<void> => {
   );
 });
 
-// GET /share/:token — public download (no auth)
-router.get("/share/:token", async (req, res): Promise<void> => {
+// MIME types safe to serve inline (no active content that could run scripts)
+// Excludes: text/html, text/javascript, image/svg+xml, and all other active types
+const INLINE_SAFE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "image/avif",
+  "image/bmp",
+  "image/tiff",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/wav",
+  "audio/flac",
+  "audio/webm",
+  "audio/aac",
+  "audio/mp4",
+  "video/mp4",
+  "video/webm",
+  "video/ogg",
+  "video/quicktime",
+  "video/x-msvideo",
+  "application/pdf",
+  "text/plain",
+]);
+
+function isInlineSafe(mimeType: string | null): boolean {
+  if (!mimeType) return false;
+  const normalised = mimeType.toLowerCase().split(";")[0].trim();
+  return INLINE_SAFE_MIME_TYPES.has(normalised);
+}
+
+// GET /share/:token/meta — public metadata (no auth)
+router.get("/share/:token/meta", async (req, res): Promise<void> => {
   const params = DownloadSharedFileParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: "Invalid token" });
     return;
   }
 
-  const { token } = params.data;
+  const result = await resolveShare(params.data.token);
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
 
+  const { file, shareToken } = result;
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.json({
+    name: file.name,
+    size: file.size,
+    mimeType: file.mimeType ?? null,
+    expiresAt: shareToken.expiresAt?.toISOString() ?? null,
+  });
+});
+
+// Shared helper: resolve and validate a share token + file
+async function resolveShare(
+  token: string,
+): Promise<
+  | { ok: true; file: (typeof filesTable.$inferSelect); shareToken: (typeof shareTokensTable.$inferSelect) }
+  | { ok: false; status: number; error: string }
+> {
   const [shareToken] = await db
     .select()
     .from(shareTokensTable)
     .where(eq(shareTokensTable.token, token));
 
   if (!shareToken) {
-    res.status(404).json({ error: "Share link not found" });
-    return;
+    return { ok: false, status: 404, error: "Share link not found" };
   }
 
-  // Check expiry
   if (shareToken.expiresAt && shareToken.expiresAt < new Date()) {
-    res.status(410).json({ error: "Share link has expired" });
-    return;
+    return { ok: false, status: 410, error: "Share link has expired" };
   }
 
   const [file] = await db
@@ -152,17 +203,71 @@ router.get("/share/:token", async (req, res): Promise<void> => {
     .where(eq(filesTable.id, shareToken.fileId));
 
   if (!file || !file.diskPath) {
-    res.status(404).json({ error: "File not found" });
-    return;
+    return { ok: false, status: 404, error: "File not found" };
   }
 
   try {
     await statAsync(file.diskPath);
   } catch {
-    res.status(404).json({ error: "File not found on disk" });
+    return { ok: false, status: 404, error: "File not found on disk" };
+  }
+
+  return { ok: true, file, shareToken };
+}
+
+// GET /share/:token/inline — public inline preview (no auth)
+// Only serves file content inline for a strict allowlist of safe MIME types.
+// Active/script-capable types (HTML, SVG, JS, …) fall back to attachment
+// so they cannot execute on the app's authenticated origin.
+router.get("/share/:token/inline", async (req, res): Promise<void> => {
+  const params = DownloadSharedFileParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid token" });
     return;
   }
 
+  const result = await resolveShare(params.data.token);
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+
+  const { file } = result;
+  const safe = isInlineSafe(file.mimeType);
+  const disposition = safe ? "inline" : "attachment";
+
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader(
+    "Content-Disposition",
+    `${disposition}; filename="${encodeURIComponent(file.name)}"`,
+  );
+  if (file.mimeType) {
+    res.setHeader("Content-Type", file.mimeType);
+  }
+  if (file.size) {
+    res.setHeader("Content-Length", file.size.toString());
+  }
+
+  createReadStream(file.diskPath!).pipe(res);
+});
+
+// GET /share/:token — public download (no auth)
+router.get("/share/:token", async (req, res): Promise<void> => {
+  const params = DownloadSharedFileParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: "Invalid token" });
+    return;
+  }
+
+  const result = await resolveShare(params.data.token);
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+
+  const { file } = result;
+
+  res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader(
     "Content-Disposition",
     `attachment; filename="${encodeURIComponent(file.name)}"`,
@@ -174,7 +279,7 @@ router.get("/share/:token", async (req, res): Promise<void> => {
     res.setHeader("Content-Length", file.size.toString());
   }
 
-  createReadStream(file.diskPath).pipe(res);
+  createReadStream(file.diskPath!).pipe(res);
 });
 
 // DELETE /share/:token/revoke — revoke a share token

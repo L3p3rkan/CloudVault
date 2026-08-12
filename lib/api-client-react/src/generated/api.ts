@@ -31,6 +31,7 @@ import type {
   PasswordInput,
   RegisterInput,
   ShareToken,
+  SharedFileMeta,
   StorageStats,
   UploadInput,
   User,
@@ -1103,6 +1104,160 @@ export function useListShareTokens<TData = Awaited<ReturnType<typeof listShareTo
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getListShareTokensQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSharedFileMetaUrl = (token: string,) => {
+
+
+
+
+  return `/api/share/${token}/meta`
+}
+
+/**
+ * @summary Get shared file metadata by token (no auth required)
+ */
+export const getSharedFileMeta = async (token: string, options?: Parameters<typeof customFetch>[1]): Promise<SharedFileMeta> => {
+
+  return customFetch<SharedFileMeta>(getGetSharedFileMetaUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSharedFileMetaQueryKey = (token: string,) => {
+    return [
+    `/api/share/${token}/meta`
+    ] as const;
+    }
+
+
+export const getGetSharedFileMetaQueryOptions = <TData = Awaited<ReturnType<typeof getSharedFileMeta>>, TError = ErrorType<void>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSharedFileMeta>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSharedFileMetaQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSharedFileMeta>>> = ({ signal }) => getSharedFileMeta(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSharedFileMeta>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSharedFileMetaQueryResult = NonNullable<Awaited<ReturnType<typeof getSharedFileMeta>>>
+export type GetSharedFileMetaQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get shared file metadata by token (no auth required)
+ */
+
+export function useGetSharedFileMeta<TData = Awaited<ReturnType<typeof getSharedFileMeta>>, TError = ErrorType<void>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSharedFileMeta>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSharedFileMetaQueryOptions(token,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getInlineSharedFileUrl = (token: string,) => {
+
+
+
+
+  return `/api/share/${token}/inline`
+}
+
+/**
+ * @summary Stream a shared file inline for browser preview (no auth required)
+ */
+export const inlineSharedFile = async (token: string, options?: Parameters<typeof customFetch>[1]): Promise<Blob> => {
+
+  return customFetch<Blob>(getInlineSharedFileUrl(token),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getInlineSharedFileQueryKey = (token: string,) => {
+    return [
+    `/api/share/${token}/inline`
+    ] as const;
+    }
+
+
+export const getInlineSharedFileQueryOptions = <TData = Awaited<ReturnType<typeof inlineSharedFile>>, TError = ErrorType<void>>(token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof inlineSharedFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getInlineSharedFileQueryKey(token);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof inlineSharedFile>>> = ({ signal }) => inlineSharedFile(token, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: token !== null && token !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof inlineSharedFile>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type InlineSharedFileQueryResult = NonNullable<Awaited<ReturnType<typeof inlineSharedFile>>>
+export type InlineSharedFileQueryError = ErrorType<void>
+
+
+/**
+ * @summary Stream a shared file inline for browser preview (no auth required)
+ */
+
+export function useInlineSharedFile<TData = Awaited<ReturnType<typeof inlineSharedFile>>, TError = ErrorType<void>>(
+ token: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof inlineSharedFile>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getInlineSharedFileQueryOptions(token,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

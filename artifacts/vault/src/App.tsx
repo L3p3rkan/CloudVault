@@ -20,10 +20,11 @@ import LoginPage from '@/pages/login';
 import RegisterPage from '@/pages/register';
 import FilesPage from '@/pages/files';
 import AdminPage from '@/pages/admin';
+import SharePreviewPage from '@/pages/share-preview';
 
 const queryClient = new QueryClient();
 
-function Router() {
+function AuthenticatedRouter() {
   return (
     <RoutedErrorBoundary>
       <Shell>
@@ -40,6 +41,19 @@ function Router() {
   );
 }
 
+function Router() {
+  return (
+    <Switch>
+      <Route path="/share/:token" component={SharePreviewPage} />
+      <Route>
+        <AuthProvider>
+          <AuthenticatedRouter />
+        </AuthProvider>
+      </Route>
+    </Switch>
+  );
+}
+
 function RoutedErrorBoundary({ children }: { children: ReactNode }) {
   const [location] = useLocation();
   return <ErrorBoundary resetKey={location}>{children}</ErrorBoundary>;
@@ -51,9 +65,7 @@ function App() {
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
-            <AuthProvider>
-              <Router />
-            </AuthProvider>
+            <Router />
           </WouterRouter>
           <Toaster />
         </TooltipProvider>

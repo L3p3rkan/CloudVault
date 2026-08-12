@@ -17,6 +17,7 @@ export * from './listFilesParams';
 export * from './loginInput';
 export * from './passwordInput';
 export * from './registerInput';
+export * from './sharedFileMeta';
 export * from './shareToken';
 export * from './storageStats';
 export * from './uploadInput';

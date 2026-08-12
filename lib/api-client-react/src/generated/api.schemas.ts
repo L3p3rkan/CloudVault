@@ -90,6 +90,15 @@ export interface PasswordInput {
   newPassword: string;
 }
 
+export interface SharedFileMeta {
+  name: string;
+  size: number;
+  /** @nullable */
+  mimeType: string | null;
+  /** @nullable */
+  expiresAt?: string | null;
+}
+
 /**
  * Expiry duration for the share link
  */

@@ -510,7 +510,8 @@ function ShareDialog({ fileId, onClose }: { fileId: number; onClose: () => void 
   };
 
   const getShareUrl = (token: string) => {
-    return `${window.location.origin}/api/share/${token}`;
+    const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+    return `${window.location.origin}${base}/share/${token}`;
   };
 
   const handleCopy = async (token: string) => {
