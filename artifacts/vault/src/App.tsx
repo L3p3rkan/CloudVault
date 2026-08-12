@@ -1,5 +1,5 @@
 import { type ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryCache } from '@tanstack/react-query';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -22,7 +22,22 @@ import FilesPage from '@/pages/files';
 import AdminPage from '@/pages/admin';
 import SharePreviewPage from '@/pages/share-preview';
 
-const queryClient = new QueryClient();
+// If any authenticated query returns 401, the session is gone (e.g. server
+// restarted and wiped the in-memory session store). Clear all cached data and
+// redirect to login so the user can re-authenticate.
+const queryClient = new QueryClient({
+  queryCache: new QueryCache({
+    onError: (error: any) => {
+      const status = error?.status ?? error?.response?.status;
+      if (status === 401) {
+        queryClient.clear();
+        if (!window.location.pathname.endsWith('/login')) {
+          window.location.replace('/login');
+        }
+      }
+    },
+  }),
+});
 
 function AuthenticatedRouter() {
   return (

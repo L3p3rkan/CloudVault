@@ -451,10 +451,42 @@ export default function FilesPage() {
 }
 
 function FilePreviewModal({ fileId, onClose, onShare }: { fileId: number; onClose: () => void; onShare: (id: number) => void }) {
-  const { data: file, isLoading } = useGetFileMeta(fileId);
+  const { data: file, isLoading, isError } = useGetFileMeta(fileId);
 
-  if (isLoading) return null; // Or a minimal skeleton
-  if (!file) return null;
+  // If meta failed (e.g. session expired), close the modal in the next tick
+  // rather than during render (side-effects during render cause warnings).
+  React.useEffect(() => {
+    if (!isLoading && (isError || !file)) {
+      onClose();
+    }
+  }, [isLoading, isError, file, onClose]);
+
+  // While loading, show a minimal centred spinner inside the dialog so it
+  // feels responsive rather than showing nothing at all.
+  if (isLoading) {
+    return (
+      <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent hideClose className="max-w-5xl w-[90vw] h-[85vh] p-0 flex flex-col overflow-hidden bg-card/95 backdrop-blur-xl border-border/50">
+          <div className="flex-1 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+              <svg className="animate-spin w-6 h-6" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+              </svg>
+              <span className="text-sm">Loading…</span>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // If the meta fetch failed (e.g. session expired), close cleanly rather than
+  // leaving the user with an invisible empty dialog.
+  if (isError || !file) {
+    onClose();
+    return null;
+  }
 
   const url = `/api/files/${file.id}/preview`;
   

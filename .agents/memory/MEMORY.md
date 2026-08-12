@@ -1,0 +1,2 @@
+- [API server rebuild required](api-server-rebuild.md) — backend code changes need a manual workflow restart; no watch mode in dev.
+- [Session store](session-store.md) — switched to connect-pg-simple (PostgreSQL-backed) so sessions survive server restarts.

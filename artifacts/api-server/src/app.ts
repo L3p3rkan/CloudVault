@@ -1,11 +1,14 @@
 import express, { type Express } from "express";
 import cors from "cors";
 import session from "express-session";
+import ConnectPgSimple from "connect-pg-simple";
 import pinoHttp from "pino-http";
 import path from "path";
 import { existsSync } from "fs";
 import router from "./routes";
 import { logger } from "./lib/logger";
+
+const PgSession = ConnectPgSimple(session);
 
 if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET environment variable is required");
@@ -48,6 +51,10 @@ app.use(
 
 app.use(
   session({
+    store: new PgSession({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: true,
+    }),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
