@@ -21,11 +21,6 @@ COPY lib/api-client-react/package.json ./lib/api-client-react/
 COPY artifacts/api-server/package.json ./artifacts/api-server/
 COPY artifacts/vault/package.json    ./artifacts/vault/
 
-# Explicitly allow the lifecycle scripts that onlyBuiltDependencies already
-# permits in pnpm-workspace.yaml.  Listing them again here ensures the Docker
-# build environment picks them up even when pnpm falls back to .npmrc only.
-RUN printf '\nonlyBuiltDependencies[]=esbuild\nonlyBuiltDependencies[]=@swc/core\nonlyBuiltDependencies[]=msw\nonlyBuiltDependencies[]=unrs-resolver\n' >> .npmrc
-
 RUN pnpm install --frozen-lockfile
 
 # ------------------------------------------------------------

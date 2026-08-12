@@ -1,0 +1,56 @@
+=> ERROR [deps 12/12] RUN pnpm install --frozen-lockfile                                                                   13.7s
+------                                                                                                                            
+ > [deps 12/12] RUN pnpm install --frozen-lockfile:                                                                               
+0.498 ! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.21.0.tgz                                          
+1.240 Scope: all 7 workspace projects                                                                                             
+1.317 ? Verifying lockfile against supply-chain policies (507 entries)...                                                         
+1.325 Lockfile is up to date, resolution step is skipped                                                                          
+1.375 Progress: resolved 1, reused 0, downloaded 0, added 0
+1.431 Packages: +481
+1.431 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+1.788 Packages are cloned from the content-addressable store to the virtual store.
+1.788   Content-addressable store is at: /root/.local/share/pnpm/store/v11
+1.788   Virtual store is at:             node_modules/.pnpm
+2.376 Progress: resolved 481, reused 0, downloaded 108, added 106
+3.376 Progress: resolved 481, reused 0, downloaded 218, added 216
+4.376 Progress: resolved 481, reused 0, downloaded 364, added 364
+5.376 Progress: resolved 481, reused 0, downloaded 468, added 468
+6.377 Progress: resolved 481, reused 0, downloaded 474, added 474
+7.378 Progress: resolved 481, reused 0, downloaded 475, added 475
+8.378 Progress: resolved 481, reused 0, downloaded 476, added 476
+9.381 Progress: resolved 481, reused 0, downloaded 477, added 477
+10.38 Progress: resolved 481, reused 0, downloaded 478, added 478
+10.91 ✓ Lockfile passes supply-chain policies (507 entries in 9.5s)
+11.38 Progress: resolved 481, reused 0, downloaded 479, added 479
+12.33 Progress: resolved 481, reused 0, downloaded 481, added 481, done
+13.44 
+13.44 dependencies:
+13.44 + @replit/connectors-sdk 0.4.1
+13.44 
+13.44 devDependencies:
+13.44 + prettier 3.9.6
+13.44 + typescript 5.9.3
+13.44 
+13.44 . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+13.46 . preinstall: Done
+13.56 [ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild@0.27.3
+13.56 
+13.56 Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+------
+Dockerfile:29
+
+--------------------
+
+  27 |     RUN printf '\nonlyBuiltDependencies[]=esbuild\nonlyBuiltDependencies[]=@swc/core\nonlyBuiltDependencies[]=msw\nonlyBuiltDependencies[]=unrs-resolver\n' >> .npmrc
+
+  28 |     
+
+  29 | >>> RUN pnpm install --frozen-lockfile
+
+  30 |     
+
+  31 |     # ------------------------------------------------------------
+
+--------------------
+
+failed to solve: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete successfully: exit code: 1
