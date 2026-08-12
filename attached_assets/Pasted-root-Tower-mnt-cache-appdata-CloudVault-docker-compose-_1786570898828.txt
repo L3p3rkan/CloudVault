@@ -1,0 +1,75 @@
+root@Tower:/mnt/cache/appdata/CloudVault# docker compose up -d
+WARN[0000] /mnt/cache/appdata/CloudVault/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion 
+[+] Running 1/1
+ ! vault Warning manifest for vault:latest not found: manifest unknown: manifest unknown                                     0.7s 
+[+] Building 9.2s (18/24)                                                                                                         
+ => [internal] load local bake definitions                                                                                   0.0s
+ => => reading from stdin 509B                                                                                               0.0s
+ => [internal] load build definition from Dockerfile                                                                         0.0s
+ => => transferring dockerfile: 3.16kB                                                                                       0.0s
+ => [internal] load metadata for docker.io/library/node:24-alpine                                                            0.6s
+ => [internal] load .dockerignore                                                                                            0.0s
+ => => transferring context: 2B                                                                                              0.0s
+ => [internal] load build context                                                                                            0.0s
+ => => transferring context: 75.75kB                                                                                         0.0s
+ => [deps  1/11] FROM docker.io/library/node:24-alpine@sha256:d32cdf619f63fe0471182d08996dd516c6275bb5fd31ae06e55a570bd9e1a  0.0s
+ => CACHED [production 2/6] RUN addgroup -S vault && adduser -S -G vault -u 1001 vault                                       0.0s
+ => CACHED [production 3/6] WORKDIR /app                                                                                     0.0s
+ => CACHED [deps  2/11] RUN corepack enable                                                                                  0.0s
+ => CACHED [deps  3/11] WORKDIR /app                                                                                         0.0s
+ => [deps  4/11] COPY package.json pnpm-workspace.yaml pnpm-lock.yaml .npmrc ./                                              0.1s
+ => [deps  5/11] COPY lib/db/package.json             ./lib/db/                                                              0.2s
+ => [deps  6/11] COPY lib/api-spec/package.json       ./lib/api-spec/                                                        0.2s
+ => [deps  7/11] COPY lib/api-zod/package.json        ./lib/api-zod/                                                         0.2s
+ => [deps  8/11] COPY lib/api-client-react/package.json ./lib/api-client-react/                                              0.1s
+ => [deps  9/11] COPY artifacts/api-server/package.json ./artifacts/api-server/                                              0.1s
+ => [deps 10/11] COPY artifacts/vault/package.json    ./artifacts/vault/                                                     0.2s
+ => ERROR [deps 11/11] RUN pnpm install --frozen-lockfile                                                                    6.8s
+------                                                                                                                            
+ > [deps 11/11] RUN pnpm install --frozen-lockfile:                                                                               
+0.460 ! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.21.0.tgz                                          
+1.182 Scope: all 7 workspace projects                                                                                             
+1.263 ? Verifying lockfile against supply-chain policies (507 entries)...                                                         
+1.270 Lockfile is up to date, resolution step is skipped                                                                          
+1.320 Progress: resolved 1, reused 0, downloaded 0, added 0
+1.362 Packages: +481
+1.362 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+1.733 Packages are cloned from the content-addressable store to the virtual store.
+1.733   Content-addressable store is at: /root/.local/share/pnpm/store/v11
+1.733   Virtual store is at:             node_modules/.pnpm
+2.320 Progress: resolved 481, reused 0, downloaded 139, added 136
+3.289 Progress: resolved 481, reused 0, downloaded 481, added 481, done
+5.618 ✓ Lockfile passes supply-chain policies (507 entries in 4.3s)
+6.519 
+6.519 dependencies:
+6.519 + @replit/connectors-sdk 0.4.1
+6.519 
+6.519 devDependencies:
+6.519 + prettier 3.9.6
+6.519 + typescript 5.9.3
+6.519 
+6.526 . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+6.544 . preinstall: Done
+6.641 [ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild@0.27.3
+6.641 
+6.641 Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+------
+Dockerfile:24
+
+--------------------
+
+  22 |     COPY artifacts/vault/package.json    ./artifacts/vault/
+
+  23 |     
+
+  24 | >>> RUN pnpm install --frozen-lockfile
+
+  25 |     
+
+  26 |     # ------------------------------------------------------------
+
+--------------------
+
+failed to solve: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete successfully: exit code: 1
+
+root@Tower:/mnt/cache/appdata/CloudVault# 
