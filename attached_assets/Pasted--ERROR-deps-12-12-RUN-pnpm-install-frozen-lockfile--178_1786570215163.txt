@@ -1,0 +1,48 @@
+=> ERROR [deps 12/12] RUN pnpm install --frozen-lockfile                                                                    6.0s
+------                                                                                                                            
+ > [deps 12/12] RUN pnpm install --frozen-lockfile:                                                                               
+0.436 ! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-11.21.0.tgz                                          
+1.135 Scope: all 7 workspace projects                                                                                             
+1.218 ? Verifying lockfile against supply-chain policies (507 entries)...                                                         
+1.225 Lockfile is up to date, resolution step is skipped                                                                          
+1.278 Progress: resolved 1, reused 0, downloaded 0, added 0
+1.308 Packages: +481
+1.308 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+1.665 Packages are cloned from the content-addressable store to the virtual store.
+1.665   Content-addressable store is at: /root/.local/share/pnpm/store/v11
+1.665   Virtual store is at:             node_modules/.pnpm
+2.282 Progress: resolved 481, reused 0, downloaded 142, added 140
+3.291 Progress: resolved 481, reused 0, downloaded 480, added 480
+3.822 Progress: resolved 481, reused 0, downloaded 481, added 481, done
+4.991 ✓ Lockfile passes supply-chain policies (507 entries in 3.7s)
+5.732 
+5.732 dependencies:
+5.732 + @replit/connectors-sdk 0.4.1
+5.732 
+5.732 devDependencies:
+5.732 + prettier 3.9.6
+5.732 + typescript 5.9.3
+5.732 
+5.739 . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+5.753 . preinstall: Done
+5.844 [ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: esbuild@0.27.3
+5.844 
+5.844 Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+------
+Dockerfile:29
+
+--------------------
+
+  27 |     RUN printf '\nonlyBuiltDependencies[]=esbuild\nonlyBuiltDependencies[]=@swc/core\nonlyBuiltDependencies[]=msw\nonlyBuiltDependencies[]=unrs-resolver\n' >> .npmrc
+
+  28 |     
+
+  29 | >>> RUN pnpm install --frozen-lockfile
+
+  30 |     
+
+  31 |     # ------------------------------------------------------------
+
+--------------------
+
+failed to solve: process "/bin/sh -c pnpm install --frozen-lockfile" did not complete successfully: exit code: 1
