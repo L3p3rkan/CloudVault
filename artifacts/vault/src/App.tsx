@@ -29,11 +29,12 @@ const queryClient = new QueryClient({
   queryCache: new QueryCache({
     onError: (error: any) => {
       const status = error?.status ?? error?.response?.status;
-      if (status === 401) {
-        queryClient.clear();
-        if (!window.location.pathname.endsWith('/login')) {
-          window.location.replace('/login');
-        }
+      // If any authenticated query sees a 401 while NOT on the login page,
+      // the session has expired — redirect so the user can log back in.
+      // Do NOT clear the cache here: clearing causes mounted queries to
+      // immediately re-fetch, which returns another 401 → infinite loop.
+      if (status === 401 && !window.location.pathname.endsWith('/login')) {
+        window.location.replace('/login');
       }
     },
   }),
