@@ -475,7 +475,7 @@ function FilePreviewModal({ fileId, onClose, onShare }: { fileId: number; onClos
 
   return (
     <Dialog open={true} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl w-[90vw] h-[85vh] p-0 flex flex-col overflow-hidden bg-card/95 backdrop-blur-xl border-border/50">
+      <DialogContent hideClose className="max-w-5xl w-[90vw] h-[85vh] p-0 flex flex-col overflow-hidden bg-card/95 backdrop-blur-xl border-border/50">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border/50 bg-background/50 flex-shrink-0">
           <div className="flex items-center space-x-3 overflow-hidden">
             {getFileIcon(file.mimeType, false)}
