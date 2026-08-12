@@ -389,7 +389,11 @@ export default function FilesPage() {
       </Dialog>
 
       {previewFileId && (
-        <FilePreviewModal fileId={previewFileId} onClose={() => setPreviewFileId(null)} />
+        <FilePreviewModal
+          fileId={previewFileId}
+          onClose={() => setPreviewFileId(null)}
+          onShare={(id) => { setPreviewFileId(null); setShareFileId(id); }}
+        />
       )}
 
       {shareFileId && (
@@ -399,7 +403,7 @@ export default function FilesPage() {
   );
 }
 
-function FilePreviewModal({ fileId, onClose }: { fileId: number; onClose: () => void }) {
+function FilePreviewModal({ fileId, onClose, onShare }: { fileId: number; onClose: () => void; onShare: (id: number) => void }) {
   const { data: file, isLoading } = useGetFileMeta(fileId);
 
   if (isLoading) return null; // Or a minimal skeleton
@@ -434,6 +438,9 @@ function FilePreviewModal({ fileId, onClose }: { fileId: number; onClose: () => 
             </div>
           </div>
           <div className="flex items-center space-x-2">
+            <Button size="sm" variant="secondary" onClick={() => onShare(file.id)}>
+              <Share2 className="w-4 h-4 mr-2" /> Share
+            </Button>
             <Button size="sm" variant="secondary" asChild>
               <a href={`/api/files/${file.id}/download`} download={file.name}>
                 <Download className="w-4 h-4 mr-2" /> Download
