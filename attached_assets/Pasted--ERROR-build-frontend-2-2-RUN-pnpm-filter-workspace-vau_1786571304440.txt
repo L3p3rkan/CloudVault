@@ -1,0 +1,67 @@
+=> ERROR [build-frontend 2/2] RUN pnpm --filter @workspace/vault run build                                                  0.8s 
+ => [build-api 2/2] RUN pnpm --filter @workspace/api-server run build                                                        0.8s 
+------                                                                                                                            
+ > [build-frontend 2/2] RUN pnpm --filter @workspace/vault run build:                                                             
+0.633                                                                                                                             
+0.633 > @workspace/vault@0.0.0 build /app/artifacts/vault                                                                         
+0.633 > vite build --config vite.config.ts                                                                                        
+0.633                                                                                                                             
+0.749 /app/node_modules/.pnpm/rollup@4.62.3/node_modules/rollup/dist/native.js:121                                                
+0.749           throw new Error(                                                                                                  
+0.749                 ^
+0.749 
+0.749 Error: Cannot find module @rollup/rollup-linux-x64-musl. npm has a bug related to optional dependencies (https://github.com/npm/cli/issues/4828). Please try `npm i` again after removing both package-lock.json and node_modules directory.
+0.749     at requireWithFriendlyError (/app/node_modules/.pnpm/rollup@4.62.3/node_modules/rollup/dist/native.js:121:9)
+0.749     at Object.<anonymous> (/app/node_modules/.pnpm/rollup@4.62.3/node_modules/rollup/dist/native.js:130:76)
+0.749     at Module._compile (node:internal/modules/cjs/loader:1872:14)
+0.749     at Object..js (node:internal/modules/cjs/loader:2003:10)
+0.749     at Module.load (node:internal/modules/cjs/loader:1594:32)
+0.749     at Module._load (node:internal/modules/cjs/loader:1396:12)
+0.749     at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+0.749     at loadCJSModuleWithModuleLoad (node:internal/modules/esm/translators:372:15)
+0.749     at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:244:9)
+0.749     at ModuleJob.run (node:internal/modules/esm/module_job:439:25) {
+0.749   [cause]: Error: Cannot find module '@rollup/rollup-linux-x64-musl'
+0.749   Require stack:
+0.749   - /app/node_modules/.pnpm/rollup@4.62.3/node_modules/rollup/dist/native.js
+0.749       at Module._resolveFilename (node:internal/modules/cjs/loader:1517:15)
+0.749       at wrapResolveFilename (node:internal/modules/cjs/loader:1071:27)
+0.749       at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1095:10)
+0.749       at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1122:12)
+0.749       at Module._load (node:internal/modules/cjs/loader:1294:5)
+0.749       at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+0.749       at Module.require (node:internal/modules/cjs/loader:1617:12)
+0.749       at require (node:internal/modules/helpers:153:16)
+0.749       at requireWithFriendlyError (/app/node_modules/.pnpm/rollup@4.62.3/node_modules/rollup/dist/native.js:103:10)
+0.749       at Object.<anonymous> (/app/node_modules/.pnpm/rollup@4.62.3/node_modules/rollup/dist/native.js:130:76) {
+0.749     code: 'MODULE_NOT_FOUND',
+0.749     requireStack: [
+0.749       '/app/node_modules/.pnpm/rollup@4.62.3/node_modules/rollup/dist/native.js'
+0.749     ]
+0.749   }
+0.749 }
+0.749 
+0.749 Node.js v24.19.0
+0.769 /app/artifacts/vault:
+0.769  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/vault@0.0.0 build: `vite build --config vite.config.ts`
+0.769 Exit status 1
+------
+Dockerfile:41
+
+--------------------
+
+  39 |         NODE_ENV=production
+
+  40 |     
+
+  41 | >>> RUN pnpm --filter @workspace/vault run build
+
+  42 |     # Output: artifacts/vault/dist/public/
+
+  43 |     
+
+--------------------
+
+failed to solve: process "/bin/sh -c pnpm --filter @workspace/vault run build" did not complete successfully: exit code: 1
+
+root@Tower:/mnt/cache/appdata/CloudVault# 
