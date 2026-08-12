@@ -1,3 +1,4 @@
+import { initDb } from "./lib/init-db";
 import app from "./app";
 import { logger } from "./lib/logger";
 
@@ -14,6 +15,13 @@ const port = Number(rawPort);
 if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
+
+// Ensure all tables exist before accepting traffic.
+// Uses CREATE TABLE IF NOT EXISTS — safe whether the DB is brand-new
+// (first Docker boot) or already populated (dev restarts).
+logger.info("Initialising database schema");
+await initDb();
+logger.info("Database schema ready");
 
 app.listen(port, (err) => {
   if (err) {

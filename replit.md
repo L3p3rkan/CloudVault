@@ -58,6 +58,8 @@ _Populate as you build — explicit user instructions worth remembering across s
 - After OpenAPI spec changes, always run codegen before writing route handlers
 - Run `pnpm run typecheck:libs` after any `lib/*` change to refresh declarations before checking artifacts
 - The `SESSION_SECRET` must be set — the server throws on startup if missing
+- The database schema is applied automatically on every server start (`CREATE TABLE IF NOT EXISTS`) — no manual `drizzle-kit push` needed in Docker. Use `push` only in dev when you change the Drizzle schema.
+- Default admin credentials (set in the DB): username `admin`, password `ChangeMe123!`
 
 ## Pointers
 
