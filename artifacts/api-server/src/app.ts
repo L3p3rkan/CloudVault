@@ -104,4 +104,32 @@ if (staticDir && existsSync(staticDir)) {
   });
 }
 
+// Global JSON error handler — must be registered AFTER all routes.
+// Without this, Express returns an HTML error page for unhandled errors
+// (multer failures, DB errors, etc.) which the frontend XHR cannot parse.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+app.use((err: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  // Multer errors (file too large, too many files, unexpected field, etc.)
+  const isMulterError =
+    typeof err === "object" &&
+    err !== null &&
+    (err as { name?: string }).name === "MulterError";
+
+  if (isMulterError) {
+    const multerErr = err as { code?: string; message?: string };
+    if (multerErr.code === "LIMIT_FILE_SIZE") {
+      res.status(413).json({ error: "File too large" });
+      return;
+    }
+    res.status(400).json({ error: multerErr.message ?? "Upload error" });
+    return;
+  }
+
+  // Everything else: log it and return a generic 500
+  logger.error({ err }, "Unhandled error");
+  const message =
+    err instanceof Error ? err.message : "Internal server error";
+  res.status(500).json({ error: message });
+});
+
 export default app;

@@ -23,7 +23,7 @@ logger.info("Initialising database schema");
 await initDb();
 logger.info("Database schema ready");
 
-app.listen(port, (err) => {
+const server = app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
     process.exit(1);
@@ -31,3 +31,9 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
 });
+
+// Disable Node.js's built-in request timeout (default 300 s in Node 18+).
+// Large file uploads (multi-GB) can take much longer than 5 minutes on a
+// typical home LAN, and timing out mid-stream corrupts the upload without a
+// useful error message.  Multer's own fileSize limit is the real guard here.
+server.requestTimeout = 0;
