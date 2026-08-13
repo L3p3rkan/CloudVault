@@ -56,11 +56,12 @@ RUN pnpm --filter @workspace/api-server run build
 # ------------------------------------------------------------
 FROM node:24-alpine AS production
 
-# Run as an unprivileged user — important for a file-upload service
-# with host-mounted storage.  The uploads volume must be owned (or
-# group-writable) by UID 1001 on the host side; on Unraid you can
-# do this once with:
-#   chown -R 1001:1001 /mnt/user/appdata/vault/uploads
+# su-exec: tiny Alpine utility that switches UID/GID and exec's a process
+# (similar to gosu but a single C file — no external deps).
+# Used by entrypoint.sh to drop from root → vault after fixing volume ownership.
+RUN apk add --no-cache su-exec
+
+# Create the unprivileged vault user (UID 1001)
 RUN addgroup -S vault && adduser -S -G vault -u 1001 vault
 
 WORKDIR /app
@@ -75,16 +76,24 @@ COPY --from=build-api      /app/artifacts/api-server/dist ./dist
 # Copy built frontend static files
 COPY --from=build-frontend /app/artifacts/vault/dist/public ./public
 
-# Give the app user ownership of the working directory.
-# The uploads volume is mounted at runtime; the entrypoint will
-# inherit whatever ownership the host sets on that path.
+# Copy the entrypoint script (runs as root, fixes volume permissions, drops to vault)
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Pre-create the uploads directory owned by vault so fresh named volumes
+# are initialised with the correct ownership by Docker.
+RUN mkdir -p /data/uploads && chown vault:vault /data/uploads
+
+# Give the app user ownership of /app itself.
 RUN chown -R vault:vault /app
 
-USER vault
+# NOTE: we do NOT switch to USER vault here.  The entrypoint.sh runs as root,
+# calls chown on /data/uploads (fixes bind-mount or named-volume ownership),
+# then exec's the Node process as vault via su-exec.
 
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD wget -qO- http://localhost:3000/api/healthz || exit 1
 
-CMD ["node", "--enable-source-maps", "./dist/index.mjs"]
+ENTRYPOINT ["/app/entrypoint.sh"]
