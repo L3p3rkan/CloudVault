@@ -21,6 +21,7 @@ export * from './registerInput';
 export * from './sharedFileMeta';
 export * from './shareToken';
 export * from './storageStats';
+export * from './updateUserInput';
 export * from './uploadInput';
 export * from './user';
 export * from './userInput';

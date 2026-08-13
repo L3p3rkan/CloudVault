@@ -457,6 +457,35 @@ paths:
           description: Forbidden
 
   /users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update a user's attributes (admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Bad request
+        "403":
+          description: Forbidden
+        "404":
+          description: User not found
     delete:
       operationId: deleteUser
       tags: [users]
@@ -634,6 +663,12 @@ components:
         password:
           type: string
           minLength: 6
+        isAdmin:
+          type: boolean
+
+    UpdateUserInput:
+      type: object
+      properties:
         isAdmin:
           type: boolean
 

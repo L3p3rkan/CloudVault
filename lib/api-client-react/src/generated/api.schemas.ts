@@ -85,6 +85,10 @@ export interface UserInput {
   isAdmin?: boolean;
 }
 
+export interface UpdateUserInput {
+  isAdmin?: boolean;
+}
+
 export interface PasswordInput {
   /** @minLength 6 */
   newPassword: string;

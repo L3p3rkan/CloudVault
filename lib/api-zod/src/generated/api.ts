@@ -354,6 +354,27 @@ export const CreateUserResponse = zod.object({
 
 
 /**
+ * @summary Update a user's attributes (admin only)
+ */
+export const UpdateUserParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateUserBody = zod.object({
+  "isAdmin": zod.boolean().optional()
+})
+
+export const UpdateUserResponse = zod.object({
+  "id": zod.number(),
+  "username": zod.string(),
+  "email": zod.string().nullish(),
+  "isAdmin": zod.boolean(),
+  "storageUsed": zod.number(),
+  "createdAt": zod.string()
+})
+
+
+/**
  * @summary Delete a user and all their files (admin only)
  */
 export const DeleteUserParams = zod.object({

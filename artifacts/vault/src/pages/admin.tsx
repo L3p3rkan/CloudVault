@@ -4,7 +4,8 @@ import {
   getListUsersQueryKey, 
   useCreateUser, 
   useDeleteUser, 
-  useChangeUserPassword 
+  useChangeUserPassword,
+  useUpdateUser
 } from '@workspace/api-client-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -30,7 +31,7 @@ import {
   DialogDescription
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Plus, Trash2, Key, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Plus, Trash2, Key, Loader2, ShieldCheck, ShieldOff } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -61,6 +62,8 @@ export default function AdminPage() {
 
   const [deleteUserId, setDeleteUserId] = useState<number | null>(null);
   const deleteUser = useDeleteUser();
+
+  const updateUser = useUpdateUser();
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -102,6 +105,18 @@ export default function AdminPage() {
       },
       onError: () => {
         toast({ title: 'Failed to delete user', variant: 'destructive' });
+      }
+    });
+  };
+
+  const handleToggleAdmin = (userId: number, makeAdmin: boolean) => {
+    updateUser.mutate({ id: userId, data: { isAdmin: makeAdmin } }, {
+      onSuccess: () => {
+        toast({ title: makeAdmin ? 'User promoted to admin' : 'Admin privileges removed' });
+        queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
+      },
+      onError: () => {
+        toast({ title: 'Failed to update user', variant: 'destructive' });
       }
     });
   };
@@ -171,6 +186,18 @@ export default function AdminPage() {
                           </DropdownMenuItem>
                           {currentUser?.id !== user.id && (
                             <>
+                              <DropdownMenuSeparator />
+                              {user.isAdmin ? (
+                                <DropdownMenuItem onClick={() => handleToggleAdmin(user.id, false)}>
+                                  <ShieldOff className="w-4 h-4 mr-2" />
+                                  Remove Admin
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem onClick={() => handleToggleAdmin(user.id, true)}>
+                                  <ShieldCheck className="w-4 h-4 mr-2" />
+                                  Make Admin
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               <DropdownMenuItem className="text-destructive focus:bg-destructive/10 focus:text-destructive" onClick={() => setDeleteUserId(user.id)}>
                                 <Trash2 className="w-4 h-4 mr-2" />

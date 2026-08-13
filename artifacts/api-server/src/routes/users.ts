@@ -9,6 +9,9 @@ import {
   DeleteUserParams,
   ListUsersResponse,
   CreateUserResponse,
+  UpdateUserBody,
+  UpdateUserParams,
+  UpdateUserResponse,
 } from "@workspace/api-zod";
 import { requireAdmin, requireAuth } from "../middlewares/requireAuth";
 
@@ -84,6 +87,61 @@ router.post("/users", requireAdmin, async (req, res): Promise<void> => {
       isAdmin: user.isAdmin,
       storageUsed: 0,
       createdAt: user.createdAt.toISOString(),
+    }),
+  );
+});
+
+// PATCH /users/:id — admin only (update attributes like isAdmin)
+router.patch("/users/:id", requireAdmin, async (req, res): Promise<void> => {
+  const params = UpdateUserParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+
+  const { id } = params.data;
+
+  // Prevent demoting yourself
+  if (id === req.session.userId && req.body.isAdmin === false) {
+    res.status(400).json({ error: "Cannot remove your own admin privileges" });
+    return;
+  }
+
+  const parsed = UpdateUserBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (parsed.data.isAdmin !== undefined) {
+    updates.isAdmin = parsed.data.isAdmin;
+  }
+
+  const [updated] = await db
+    .update(usersTable)
+    .set(updates)
+    .where(eq(usersTable.id, id))
+    .returning();
+
+  if (!updated) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const storageResult = await db
+    .select({ total: sum(filesTable.size) })
+    .from(filesTable)
+    .where(eq(filesTable.userId, id));
+
+  res.json(
+    UpdateUserResponse.parse({
+      id: updated.id,
+      username: updated.username,
+      email: updated.email,
+      isAdmin: updated.isAdmin,
+      storageUsed: Number(storageResult[0]?.total ?? 0),
+      createdAt: updated.createdAt.toISOString(),
     }),
   );
 });
