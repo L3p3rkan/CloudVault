@@ -3,7 +3,7 @@ import multer from "multer";
 import path from "node:path";
 import { mkdir, unlink, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
-import { db, filesTable } from "@workspace/db";
+import { db, filesTable, usersTable } from "@workspace/db";
 import { eq, and, desc, sum, count, sql } from "drizzle-orm";
 import {
   ListFilesQueryParams,
@@ -43,14 +43,21 @@ const upload = multer({
   limits: { fileSize: 100 * 1024 * 1024 * 1024 }, // 100 GB per file
 });
 
-// Ensure a virtual folder path exists in DB (creates all intermediates)
+// Structural type covering both the global db and a drizzle transaction handle.
+// Only the query-builder methods used by ensureVirtualFolder are required.
+type DbOrTx = Pick<typeof db, "select" | "insert">;
+
+// Ensure a virtual folder path exists in DB (creates all intermediates).
+// Accepts a db/tx handle so callers inside a transaction do not acquire a
+// second pool connection (which would deadlock under high concurrency).
 async function ensureVirtualFolder(
+  dbOrTx: DbOrTx,
   userId: number,
   folderPath: string,
 ): Promise<void> {
   if (folderPath === "/") return;
 
-  const existing = await db
+  const existing = await dbOrTx
     .select()
     .from(filesTable)
     .where(
@@ -68,9 +75,9 @@ async function ensureVirtualFolder(
   const parentPath =
     parts.length === 1 ? "/" : "/" + parts.slice(0, -1).join("/");
 
-  await ensureVirtualFolder(userId, parentPath);
+  await ensureVirtualFolder(dbOrTx, userId, parentPath);
 
-  await db
+  await dbOrTx
     .insert(filesTable)
     .values({
       userId,
@@ -262,6 +269,7 @@ router.post(
       return;
     }
 
+    const userId = req.session.userId!;
     const parentPath = (req.body.parentPath as string) || "/";
     let relativePaths: string[] = [];
     try {
@@ -272,70 +280,125 @@ router.post(
       relativePaths = [];
     }
 
-    const userId = req.session.userId!;
-    const inserted = [];
+    // Run quota check and file insertions inside a transaction with a
+    // row-level lock on the user row.  This serializes concurrent uploads
+    // for the same user so two simultaneous requests cannot both pass the
+    // quota check and collectively exceed the cap.
+    let inserted: Array<{
+      id: number;
+      userId: number;
+      name: string;
+      path: string;
+      size: number;
+      mimeType: string | null | undefined;
+      isFolder: boolean;
+      parentPath: string;
+      createdAt: string;
+      updatedAt: string;
+    }>;
 
-    for (let i = 0; i < uploadedFiles.length; i++) {
-      const file = uploadedFiles[i];
-      const relativePath = relativePaths[i] || "";
+    try {
+      inserted = await db.transaction(async (tx) => {
+        // Lock the user row for the duration of this transaction
+        const [lockedUser] = await tx
+          .select({ storageQuotaBytes: usersTable.storageQuotaBytes })
+          .from(usersTable)
+          .where(eq(usersTable.id, userId))
+          .for("update");
 
-      let virtualParentPath = parentPath;
+        const quota = lockedUser?.storageQuotaBytes ?? null;
+        if (quota !== null) {
+          const [usageRow] = await tx
+            .select({ total: sum(filesTable.size) })
+            .from(filesTable)
+            .where(and(eq(filesTable.userId, userId), eq(filesTable.isFolder, false)));
 
-      if (relativePath) {
-        // relativePath is e.g. "photos/2024/beach.jpg"
-        const parts = relativePath.split("/").filter(Boolean);
-        parts.pop(); // remove filename
+          const currentUsage = Number(usageRow?.total ?? 0);
+          const incomingSize = uploadedFiles.reduce((acc, f) => acc + f.size, 0);
 
-        if (parts.length > 0) {
-          // Build intermediate folder paths and ensure they exist
-          const segments = [];
-          for (const part of parts) {
-            segments.push(part);
-            const folderVirtualPath =
-              parentPath === "/"
-                ? `/${segments.join("/")}`
-                : `${parentPath}/${segments.join("/")}`;
-            await ensureVirtualFolder(userId, folderVirtualPath);
+          if (currentUsage + incomingSize > quota) {
+            throw Object.assign(new Error("quota_exceeded"), { quota });
+          }
+        }
+
+        const records = [];
+        for (let i = 0; i < uploadedFiles.length; i++) {
+          const file = uploadedFiles[i];
+          const relativePath = relativePaths[i] || "";
+
+          let virtualParentPath = parentPath;
+
+          if (relativePath) {
+            const parts = relativePath.split("/").filter(Boolean);
+            parts.pop();
+
+            if (parts.length > 0) {
+              const segments = [];
+              for (const part of parts) {
+                segments.push(part);
+                const folderVirtualPath =
+                  parentPath === "/"
+                    ? `/${segments.join("/")}`
+                    : `${parentPath}/${segments.join("/")}`;
+                await ensureVirtualFolder(tx, userId, folderVirtualPath);
+              }
+
+              virtualParentPath =
+                parentPath === "/"
+                  ? `/${parts.join("/")}`
+                  : `${parentPath}/${parts.join("/")}`;
+            }
           }
 
-          virtualParentPath =
-            parentPath === "/"
-              ? `/${parts.join("/")}`
-              : `${parentPath}/${parts.join("/")}`;
+          const virtualPath =
+            virtualParentPath === "/"
+              ? `/${file.originalname}`
+              : `${virtualParentPath}/${file.originalname}`;
+
+          const [record] = await tx
+            .insert(filesTable)
+            .values({
+              userId,
+              name: file.originalname,
+              path: virtualPath,
+              parentPath: virtualParentPath,
+              size: file.size,
+              mimeType: file.mimetype,
+              isFolder: false,
+              diskPath: file.path,
+            })
+            .returning();
+
+          records.push({
+            id: record.id,
+            userId: record.userId,
+            name: record.name,
+            path: record.path,
+            size: record.size ?? 0,
+            mimeType: record.mimeType,
+            isFolder: record.isFolder,
+            parentPath: record.parentPath,
+            createdAt: record.createdAt.toISOString(),
+            updatedAt: record.updatedAt.toISOString(),
+          });
         }
-      }
 
-      const virtualPath =
-        virtualParentPath === "/"
-          ? `/${file.originalname}`
-          : `${virtualParentPath}/${file.originalname}`;
-
-      const [record] = await db
-        .insert(filesTable)
-        .values({
-          userId,
-          name: file.originalname,
-          path: virtualPath,
-          parentPath: virtualParentPath,
-          size: file.size,
-          mimeType: file.mimetype,
-          isFolder: false,
-          diskPath: file.path,
-        })
-        .returning();
-
-      inserted.push({
-        id: record.id,
-        userId: record.userId,
-        name: record.name,
-        path: record.path,
-        size: record.size ?? 0,
-        mimeType: record.mimeType,
-        isFolder: record.isFolder,
-        parentPath: record.parentPath,
-        createdAt: record.createdAt.toISOString(),
-        updatedAt: record.updatedAt.toISOString(),
+        return records;
       });
+    } catch (err: unknown) {
+      // If the transaction was aborted due to quota, clean up disk files
+      await Promise.all(uploadedFiles.map((f) => unlink(f.path).catch(() => {})));
+
+      const isQuotaError = err instanceof Error && err.message === "quota_exceeded";
+      if (isQuotaError) {
+        const quota = (err as Error & { quota: number }).quota;
+        res.status(413).json({
+          error: `Upload would exceed your storage quota of ${formatBytes(quota)}`,
+        });
+      } else {
+        throw err;
+      }
+      return;
     }
 
     res.status(201).json(UploadFilesResponse.parse(inserted));

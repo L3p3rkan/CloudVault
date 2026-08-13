@@ -72,6 +72,8 @@ export interface User {
   email?: string | null;
   isAdmin: boolean;
   storageUsed: number;
+  /** @nullable */
+  storageQuotaBytes?: number | null;
   createdAt: string;
 }
 
@@ -87,6 +89,8 @@ export interface UserInput {
 
 export interface UpdateUserInput {
   isAdmin?: boolean;
+  /** Storage quota in bytes; null clears the quota (unlimited) */
+  storageQuotaBytes?: number | null;
 }
 
 export interface PasswordInput {

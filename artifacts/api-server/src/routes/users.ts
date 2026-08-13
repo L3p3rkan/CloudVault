@@ -41,6 +41,7 @@ router.get("/users", requireAdmin, async (req, res): Promise<void> => {
     email: u.email,
     isAdmin: u.isAdmin,
     storageUsed: storageMap.get(u.id) ?? 0,
+    storageQuotaBytes: u.storageQuotaBytes ?? null,
     createdAt: u.createdAt.toISOString(),
   }));
 
@@ -86,6 +87,7 @@ router.post("/users", requireAdmin, async (req, res): Promise<void> => {
       email: user.email,
       isAdmin: user.isAdmin,
       storageUsed: 0,
+      storageQuotaBytes: user.storageQuotaBytes ?? null,
       createdAt: user.createdAt.toISOString(),
     }),
   );
@@ -117,6 +119,10 @@ router.patch("/users/:id", requireAdmin, async (req, res): Promise<void> => {
   if (parsed.data.isAdmin !== undefined) {
     updates.isAdmin = parsed.data.isAdmin;
   }
+  if ("storageQuotaBytes" in parsed.data) {
+    // null means clear the quota (unlimited); a number sets the cap
+    updates.storageQuotaBytes = parsed.data.storageQuotaBytes ?? null;
+  }
 
   const [updated] = await db
     .update(usersTable)
@@ -141,6 +147,7 @@ router.patch("/users/:id", requireAdmin, async (req, res): Promise<void> => {
       email: updated.email,
       isAdmin: updated.isAdmin,
       storageUsed: Number(storageResult[0]?.total ?? 0),
+      storageQuotaBytes: updated.storageQuotaBytes ?? null,
       createdAt: updated.createdAt.toISOString(),
     }),
   );

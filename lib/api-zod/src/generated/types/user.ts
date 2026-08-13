@@ -13,5 +13,7 @@ export interface User {
   email?: string | null;
   isAdmin: boolean;
   storageUsed: number;
+  /** @nullable */
+  storageQuotaBytes?: number | null;
   createdAt: string;
 }

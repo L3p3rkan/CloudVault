@@ -322,6 +322,7 @@ export const ListUsersResponseItem = zod.object({
   "email": zod.string().nullish(),
   "isAdmin": zod.boolean(),
   "storageUsed": zod.number(),
+  "storageQuotaBytes": zod.number().nullish(),
   "createdAt": zod.string()
 })
 export const ListUsersResponse = zod.array(ListUsersResponseItem)
@@ -349,6 +350,7 @@ export const CreateUserResponse = zod.object({
   "email": zod.string().nullish(),
   "isAdmin": zod.boolean(),
   "storageUsed": zod.number(),
+  "storageQuotaBytes": zod.number().nullish(),
   "createdAt": zod.string()
 })
 
@@ -361,7 +363,8 @@ export const UpdateUserParams = zod.object({
 })
 
 export const UpdateUserBody = zod.object({
-  "isAdmin": zod.boolean().optional()
+  "isAdmin": zod.boolean().optional(),
+  "storageQuotaBytes": zod.number().nullish()
 })
 
 export const UpdateUserResponse = zod.object({
@@ -370,6 +373,7 @@ export const UpdateUserResponse = zod.object({
   "email": zod.string().nullish(),
   "isAdmin": zod.boolean(),
   "storageUsed": zod.number(),
+  "storageQuotaBytes": zod.number().nullish(),
   "createdAt": zod.string()
 })
 

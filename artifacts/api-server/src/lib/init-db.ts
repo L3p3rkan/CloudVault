@@ -77,6 +77,9 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Storage quota column (added after initial release — safe to run on existing databases).
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "storage_quota_bytes" bigint;
+
 -- Session table used by connect-pg-simple.
 -- Created here so it exists before the first login attempt, avoiding the
 -- race where createTableIfMissing fires inside a session.save() callback.

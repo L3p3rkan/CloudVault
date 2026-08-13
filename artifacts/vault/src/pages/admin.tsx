@@ -31,7 +31,7 @@ import {
   DialogDescription
 } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Plus, Trash2, Key, Loader2, ShieldCheck, ShieldOff } from 'lucide-react';
+import { MoreHorizontal, Plus, Trash2, Key, Loader2, ShieldCheck, ShieldOff, HardDrive } from 'lucide-react';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -39,6 +39,48 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator 
 } from '@/components/ui/dropdown-menu';
+
+// Parse a human-readable size string (e.g. "10 GB", "500 MB") to bytes
+function parseQuotaInput(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const match = trimmed.match(/^([\d.]+)\s*(B|KB|MB|GB|TB)?$/i);
+  if (!match) return null;
+  const num = parseFloat(match[1]);
+  if (isNaN(num) || num < 0) return null;
+  const unit = (match[2] || 'B').toUpperCase();
+  const multipliers: Record<string, number> = {
+    B: 1,
+    KB: 1024,
+    MB: 1024 ** 2,
+    GB: 1024 ** 3,
+    TB: 1024 ** 4,
+  };
+  return Math.round(num * (multipliers[unit] ?? 1));
+}
+
+function StorageCell({ storageUsed, storageQuotaBytes }: { storageUsed: number; storageQuotaBytes?: number | null }) {
+  const used = formatBytes(storageUsed);
+  if (storageQuotaBytes == null) {
+    return <span className="text-muted-foreground font-mono text-xs">{used}</span>;
+  }
+  const pct = Math.min(100, Math.round((storageUsed / storageQuotaBytes) * 100));
+  const quota = formatBytes(storageQuotaBytes);
+  const overQuota = storageUsed > storageQuotaBytes;
+  return (
+    <div className="flex flex-col gap-1">
+      <span className={`font-mono text-xs ${overQuota ? 'text-destructive' : 'text-muted-foreground'}`}>
+        {used} / {quota}
+      </span>
+      <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${overQuota ? 'bg-destructive' : 'bg-primary'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function AdminPage() {
   const { user: currentUser } = useAuth();
@@ -64,6 +106,11 @@ export default function AdminPage() {
   const deleteUser = useDeleteUser();
 
   const updateUser = useUpdateUser();
+
+  // Quota dialog state
+  const [quotaUserId, setQuotaUserId] = useState<number | null>(null);
+  const [quotaInput, setQuotaInput] = useState('');
+  const quotaUser = users?.find((u) => u.id === quotaUserId);
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,6 +168,40 @@ export default function AdminPage() {
     });
   };
 
+  const openQuotaDialog = (userId: number) => {
+    const u = users?.find((x) => x.id === userId);
+    setQuotaUserId(userId);
+    // Pre-fill with existing quota if set
+    setQuotaInput(u?.storageQuotaBytes != null ? formatBytes(u.storageQuotaBytes) : '');
+  };
+
+  const handleSetQuota = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quotaUserId) return;
+
+    const trimmed = quotaInput.trim();
+    let bytes: number | null = null;
+    if (trimmed !== '') {
+      bytes = parseQuotaInput(trimmed);
+      if (bytes === null) {
+        toast({ title: 'Invalid quota — use e.g. "10 GB", "500 MB"', variant: 'destructive' });
+        return;
+      }
+    }
+
+    updateUser.mutate({ id: quotaUserId, data: { storageQuotaBytes: bytes } }, {
+      onSuccess: () => {
+        toast({ title: bytes === null ? 'Quota cleared (unlimited)' : `Quota set to ${formatBytes(bytes)}` });
+        setQuotaUserId(null);
+        setQuotaInput('');
+        queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
+      },
+      onError: () => {
+        toast({ title: 'Failed to update quota', variant: 'destructive' });
+      }
+    });
+  };
+
   if (currentUser && !currentUser.isAdmin) {
     return <div className="p-8 text-center text-muted-foreground">Access denied. Administrators only.</div>;
   }
@@ -147,7 +228,7 @@ export default function AdminPage() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Username</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead>Storage Used</TableHead>
+                  <TableHead>Storage</TableHead>
                   <TableHead>Created</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -166,8 +247,8 @@ export default function AdminPage() {
                         {user.isAdmin ? 'Admin' : 'User'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground font-mono text-xs">
-                      {formatBytes(user.storageUsed)}
+                    <TableCell>
+                      <StorageCell storageUsed={user.storageUsed} storageQuotaBytes={user.storageQuotaBytes} />
                     </TableCell>
                     <TableCell className="text-muted-foreground text-xs">
                       {formatDate(user.createdAt)}
@@ -183,6 +264,10 @@ export default function AdminPage() {
                           <DropdownMenuItem onClick={() => setResetUserId(user.id)}>
                             <Key className="w-4 h-4 mr-2" />
                             Reset Password
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openQuotaDialog(user.id)}>
+                            <HardDrive className="w-4 h-4 mr-2" />
+                            Set Storage Quota
                           </DropdownMenuItem>
                           {currentUser?.id !== user.id && (
                             <>
@@ -280,6 +365,42 @@ export default function AdminPage() {
               <Button variant="outline" type="button" onClick={() => setResetUserId(null)}>Cancel</Button>
               <Button type="submit" disabled={changePassword.isPending}>
                 {changePassword.isPending ? 'Resetting...' : 'Reset Password'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Storage Quota Modal */}
+      <Dialog open={quotaUserId !== null} onOpenChange={(open) => { if (!open) { setQuotaUserId(null); setQuotaInput(''); } }}>
+        <DialogContent>
+          <form onSubmit={handleSetQuota}>
+            <DialogHeader>
+              <DialogTitle>Storage Quota</DialogTitle>
+              <DialogDescription>
+                Set a maximum storage limit for <span className="font-mono font-medium">{quotaUser?.username}</span>.
+                Leave blank to allow unlimited storage.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Quota limit</label>
+                <Input
+                  placeholder="e.g. 10 GB, 500 MB — leave blank for unlimited"
+                  value={quotaInput}
+                  onChange={e => setQuotaInput(e.target.value)}
+                  className="font-mono"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Accepts B, KB, MB, GB, or TB. Current usage:{' '}
+                  <span className="font-mono">{quotaUser ? formatBytes(quotaUser.storageUsed) : '—'}</span>
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" type="button" onClick={() => { setQuotaUserId(null); setQuotaInput(''); }}>Cancel</Button>
+              <Button type="submit" disabled={updateUser.isPending}>
+                {updateUser.isPending ? 'Saving…' : quotaInput.trim() ? 'Set Quota' : 'Clear Quota'}
               </Button>
             </DialogFooter>
           </form>

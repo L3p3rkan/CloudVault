@@ -8,4 +8,6 @@
 
 export interface UpdateUserInput {
   isAdmin?: boolean;
+  /** Storage quota in bytes; null clears the quota (unlimited) */
+  storageQuotaBytes?: number | null;
 }
