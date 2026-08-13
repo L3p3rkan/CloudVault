@@ -23,8 +23,11 @@ services:
     ports:
       - "${HOST_PORT:-3000}:3000"
     environment:
-      # ── Required ──────────────────────────────────────────
-      SESSION_SECRET: "${SESSION_SECRET}"
+      # ── Recommended ───────────────────────────────────────
+      # Set SESSION_SECRET to a long random string (e.g. `openssl rand -hex 32`).
+      # If omitted, a random secret is generated at startup — the app will work
+      # but all sessions are invalidated on every container restart.
+      SESSION_SECRET: "${SESSION_SECRET:-}"
       DATABASE_URL: "postgresql://vault:${POSTGRES_PASSWORD:-vaultpass}@db:5432/vault"
 
       # ── Optional ──────────────────────────────────────────

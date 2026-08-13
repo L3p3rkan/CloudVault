@@ -5,14 +5,26 @@ import ConnectPgSimple from "connect-pg-simple";
 import pinoHttp from "pino-http";
 import path from "path";
 import { existsSync } from "fs";
+import { randomUUID } from "node:crypto";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import { pool } from "@workspace/db";
 
 const PgSession = ConnectPgSimple(session);
 
+// If SESSION_SECRET is not set, generate a random one for this process
+// lifetime.  Sessions will be invalidated on every container restart, but the
+// app will still work — which is far better than crashing on first boot.
+// Set SESSION_SECRET in your docker-compose.yml / Unraid template to persist
+// sessions across restarts.
 if (!process.env.SESSION_SECRET) {
-  throw new Error("SESSION_SECRET environment variable is required");
+  const generated = randomUUID();
+  process.env.SESSION_SECRET = generated;
+  logger.warn(
+    "SESSION_SECRET is not set — using a randomly generated secret. " +
+      "All sessions will be invalidated on container restart. " +
+      "Set SESSION_SECRET in your environment to avoid this.",
+  );
 }
 
 const app: Express = express();
