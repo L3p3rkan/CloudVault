@@ -77,6 +77,22 @@ export const GetMeResponse = zod.object({
 
 
 /**
+ * @summary Change the currently authenticated user's own password
+ */
+
+export const changeMyPasswordBodyNewPasswordMin = 6;
+
+
+
+export const ChangeMyPasswordBody = zod.object({
+  "currentPassword": zod.string().min(1),
+  "newPassword": zod.string().min(changeMyPasswordBodyNewPasswordMin)
+})
+
+export const ChangeMyPasswordResponse = zod.void()
+
+
+/**
  * @summary List files and folders at a path
  */
 export const listFilesQueryPathDefault = `/`;

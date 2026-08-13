@@ -90,6 +90,13 @@ export interface PasswordInput {
   newPassword: string;
 }
 
+export interface ChangePasswordInput {
+  /** @minLength 1 */
+  currentPassword: string;
+  /** @minLength 6 */
+  newPassword: string;
+}
+
 export interface SharedFileMeta {
   name: string;
   size: number;

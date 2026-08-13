@@ -8,6 +8,7 @@ import {
   LoginResponse,
   RegisterResponse,
   GetMeResponse,
+  ChangeMyPasswordBody,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 
@@ -123,6 +124,45 @@ router.post("/auth/logout", (req, res): void => {
     res.status(204).send();
   });
 });
+
+// POST /auth/change-password
+router.post(
+  "/auth/change-password",
+  requireAuth,
+  async (req, res): Promise<void> => {
+    const parsed = ChangeMyPasswordBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+
+    const { currentPassword, newPassword } = parsed.data;
+
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, req.session.userId!));
+
+    if (!user) {
+      res.status(401).json({ error: "Not authenticated" });
+      return;
+    }
+
+    const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!valid) {
+      res.status(400).json({ error: "Current password is incorrect" });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 12);
+    await db
+      .update(usersTable)
+      .set({ passwordHash })
+      .where(eq(usersTable.id, user.id));
+
+    res.status(204).send();
+  },
+);
 
 // GET /auth/me
 router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {

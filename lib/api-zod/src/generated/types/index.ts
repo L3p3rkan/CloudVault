@@ -7,6 +7,7 @@
  */
 
 export * from './authUser';
+export * from './changePasswordInput';
 export * from './createShareTokenInput';
 export * from './createShareTokenInputExpiry';
 export * from './fileItem';

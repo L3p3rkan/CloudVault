@@ -98,6 +98,25 @@ paths:
         "401":
           description: Not authenticated
 
+  /auth/change-password:
+    post:
+      operationId: changeMyPassword
+      tags: [auth]
+      summary: Change the currently authenticated user's own password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordInput"
+      responses:
+        "204":
+          description: Password changed
+        "400":
+          description: Validation error or incorrect current password
+        "401":
+          description: Not authenticated
+
   # ── Files ────────────────────────────────────────────────────────────────
   /files:
     get:
@@ -622,6 +641,17 @@ components:
       type: object
       required: [newPassword]
       properties:
+        newPassword:
+          type: string
+          minLength: 6
+
+    ChangePasswordInput:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
         newPassword:
           type: string
           minLength: 6

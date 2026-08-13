@@ -20,6 +20,7 @@ import LoginPage from '@/pages/login';
 import RegisterPage from '@/pages/register';
 import FilesPage from '@/pages/files';
 import AdminPage from '@/pages/admin';
+import SettingsPage from '@/pages/settings';
 import SharePreviewPage from '@/pages/share-preview';
 
 // If any authenticated query returns 401, the session is gone (e.g. server
@@ -50,6 +51,7 @@ function AuthenticatedRouter() {
           <Route path="/register" component={RegisterPage} />
           <Route path="/files" component={FilesPage} />
           <Route path="/admin" component={AdminPage} />
+          <Route path="/settings" component={SettingsPage} />
           <Route component={NotFound} />
         </Switch>
       </Shell>

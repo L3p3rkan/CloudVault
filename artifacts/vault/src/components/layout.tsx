@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useLogout } from '@workspace/api-client-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, useLocation } from 'wouter';
-import { Server, HardDrive, Users, LogOut, Loader2 } from 'lucide-react';
+import { Server, HardDrive, Users, LogOut, Loader2, Settings } from 'lucide-react';
 import { useGetStorageStats, getGetStorageStatsQueryKey } from '@workspace/api-client-react';
 import { Progress } from '@/components/ui/progress';
 
@@ -66,7 +66,11 @@ export function Sidebar() {
         </div>
       </div>
 
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-sidebar-border space-y-2">
+        <Link href="/settings" className={`flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-md transition-colors ${location === '/settings' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'}`}>
+          <Settings className="w-4 h-4" />
+          Settings
+        </Link>
         <div className="flex items-center justify-between">
           <div className="flex flex-col truncate">
             <span className="text-sm font-medium text-sidebar-foreground truncate">{user.username}</span>
