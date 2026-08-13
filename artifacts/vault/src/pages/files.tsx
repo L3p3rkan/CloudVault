@@ -431,7 +431,7 @@ export default function FilesPage() {
         <FilePreviewModal
           fileId={previewFileId}
           onClose={() => setPreviewFileId(null)}
-          onShare={(id) => { setPreviewFileId(null); setShareFileId(id); }}
+          onShare={(id) => { setShareFileId(id); }}
         />
       )}
 
