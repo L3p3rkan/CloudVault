@@ -360,9 +360,42 @@ paths:
           required: true
           schema:
             type: string
+        - name: Range
+          in: header
+          required: false
+          schema:
+            type: string
+          description: "HTTP range header for partial content (e.g. bytes=0-1023)"
       responses:
         "200":
-          description: File stream with inline content disposition
+          description: Full file stream with inline content disposition
+          headers:
+            Accept-Ranges:
+              schema:
+                type: string
+                example: bytes
+            Content-Length:
+              schema:
+                type: integer
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "206":
+          description: Partial file content (range request)
+          headers:
+            Content-Range:
+              schema:
+                type: string
+                example: "bytes 0-1023/204800"
+            Accept-Ranges:
+              schema:
+                type: string
+                example: bytes
+            Content-Length:
+              schema:
+                type: integer
           content:
             application/octet-stream:
               schema:
@@ -372,6 +405,8 @@ paths:
           description: Token not found or expired
         "410":
           description: Share link expired
+        "416":
+          description: Range not satisfiable
 
   /share/{token}:
     get:
@@ -384,9 +419,42 @@ paths:
           required: true
           schema:
             type: string
+        - name: Range
+          in: header
+          required: false
+          schema:
+            type: string
+          description: "HTTP range header for partial content (e.g. bytes=0-1023)"
       responses:
         "200":
-          description: File stream
+          description: Full file stream
+          headers:
+            Accept-Ranges:
+              schema:
+                type: string
+                example: bytes
+            Content-Length:
+              schema:
+                type: integer
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "206":
+          description: Partial file content (range request)
+          headers:
+            Content-Range:
+              schema:
+                type: string
+                example: "bytes 0-1023/204800"
+            Accept-Ranges:
+              schema:
+                type: string
+                example: bytes
+            Content-Length:
+              schema:
+                type: integer
           content:
             application/octet-stream:
               schema:
@@ -396,6 +464,8 @@ paths:
           description: Token not found or expired
         "410":
           description: Share link expired
+        "416":
+          description: Range not satisfiable
 
   /share/{token}/revoke:
     delete:

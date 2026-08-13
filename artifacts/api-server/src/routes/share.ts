@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { stat, createReadStream } from "node:fs";
 import { promisify } from "node:util";
 import { db, filesTable, shareTokensTable } from "@workspace/db";
@@ -153,6 +153,76 @@ function isInlineSafe(mimeType: string | null): boolean {
   if (!mimeType) return false;
   const normalised = mimeType.toLowerCase().split(";")[0].trim();
   return INLINE_SAFE_MIME_TYPES.has(normalised);
+}
+
+/**
+ * Stream a file to the response, supporting HTTP Range requests (RFC 7233).
+ * Sends 206 Partial Content when a valid Range header is present, otherwise 200.
+ */
+async function streamFile(
+  req: Request,
+  res: Response,
+  filePath: string,
+  fileSize: number | null,
+  mimeType: string | null,
+  disposition: string,
+): Promise<void> {
+  const totalSize = fileSize ?? (await statAsync(filePath)).size;
+
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Content-Disposition", disposition);
+  res.setHeader("Accept-Ranges", "bytes");
+  if (mimeType) res.setHeader("Content-Type", mimeType);
+
+  const rangeHeader = req.headers["range"];
+  if (rangeHeader) {
+    // Parse "bytes=start-end"
+    const match = rangeHeader.match(/^bytes=(\d*)-(\d*)$/);
+    if (!match) {
+      res.setHeader("Content-Range", `bytes */${totalSize}`);
+      res.status(416).end();
+      return;
+    }
+
+    const rawStart = match[1];
+    const rawEnd = match[2];
+
+    let start: number;
+    let end: number;
+
+    if (rawStart === "") {
+      // suffix-range: bytes=-N  (last N bytes)
+      const suffixLength = parseInt(rawEnd, 10);
+      if (isNaN(suffixLength) || suffixLength <= 0) {
+        res.setHeader("Content-Range", `bytes */${totalSize}`);
+        res.status(416).end();
+        return;
+      }
+      start = Math.max(0, totalSize - suffixLength);
+      end = totalSize - 1;
+    } else {
+      start = parseInt(rawStart, 10);
+      // Per RFC 7233 §2.1: if end > last-byte-pos, clamp to last-byte-pos
+      end = rawEnd === "" ? totalSize - 1 : Math.min(parseInt(rawEnd, 10), totalSize - 1);
+    }
+
+    // 416 only when: start is NaN/invalid, end is NaN, or start is beyond EOF
+    if (isNaN(start) || isNaN(end) || start > end || start >= totalSize) {
+      res.setHeader("Content-Range", `bytes */${totalSize}`);
+      res.status(416).end();
+      return;
+    }
+
+    const chunkSize = end - start + 1;
+    res.setHeader("Content-Range", `bytes ${start}-${end}/${totalSize}`);
+    res.setHeader("Content-Length", chunkSize.toString());
+    res.status(206);
+    createReadStream(filePath, { start, end }).pipe(res);
+  } else {
+    res.setHeader("Content-Length", totalSize.toString());
+    res.status(200);
+    createReadStream(filePath).pipe(res);
+  }
 }
 
 // GET /share/:token/meta — public metadata (no auth)
@@ -318,14 +388,14 @@ router.get("/share/:token/folder-file/:fileId", async (req, res): Promise<void> 
     return;
   }
 
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader(
-    "Content-Disposition",
+  await streamFile(
+    req,
+    res,
+    targetFile.diskPath,
+    targetFile.size ?? null,
+    targetFile.mimeType ?? null,
     `attachment; filename="${encodeURIComponent(targetFile.name)}"`,
   );
-  if (targetFile.mimeType) res.setHeader("Content-Type", targetFile.mimeType);
-  if (targetFile.size) res.setHeader("Content-Length", targetFile.size.toString());
-  createReadStream(targetFile.diskPath).pipe(res);
 });
 
 // GET /share/:token/inline — public inline preview (no auth)
@@ -355,19 +425,14 @@ router.get("/share/:token/inline", async (req, res): Promise<void> => {
   const safe = isInlineSafe(file.mimeType);
   const disposition = safe ? "inline" : "attachment";
 
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader(
-    "Content-Disposition",
+  await streamFile(
+    req,
+    res,
+    file.diskPath!,
+    file.size ?? null,
+    file.mimeType ?? null,
     `${disposition}; filename="${encodeURIComponent(file.name)}"`,
   );
-  if (file.mimeType) {
-    res.setHeader("Content-Type", file.mimeType);
-  }
-  if (file.size) {
-    res.setHeader("Content-Length", file.size.toString());
-  }
-
-  createReadStream(file.diskPath!).pipe(res);
 });
 
 // GET /share/:token — public download (no auth)
@@ -391,19 +456,14 @@ router.get("/share/:token", async (req, res): Promise<void> => {
     return;
   }
 
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader(
-    "Content-Disposition",
+  await streamFile(
+    req,
+    res,
+    file.diskPath!,
+    file.size ?? null,
+    file.mimeType ?? null,
     `attachment; filename="${encodeURIComponent(file.name)}"`,
   );
-  if (file.mimeType) {
-    res.setHeader("Content-Type", file.mimeType);
-  }
-  if (file.size) {
-    res.setHeader("Content-Length", file.size.toString());
-  }
-
-  createReadStream(file.diskPath!).pipe(res);
 });
 
 // DELETE /share/:token/revoke — revoke a share token
